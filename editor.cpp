@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <list>
+#include <vector>
 
 using namespace std;
 
@@ -11,22 +12,26 @@ class FileException {
 };
 
 class FileContentBuffer {
-	list<string> lines_;
-	string file_;
+	vector<string> lines_;
+	string filename_;
+	
 public:
 	FileContentBuffer(string file);
 	void load();
 	void print();
+	void save();
+	void delete_line(int y);
+	void delete_char(int x, int y, int direction);
 };
 
 FileContentBuffer::FileContentBuffer(string file) {
-	file_=file;
+	filename_=file;
 }
 
 void FileContentBuffer::load() {
 	ifstream file;
 	string line;
-	file.open(file_.c_str());
+	file.open(filename_.c_str());
 	if (!file.is_open()) {
 		throw FileException();
 	}
@@ -38,12 +43,37 @@ void FileContentBuffer::load() {
 }
 
 void FileContentBuffer::print() {
-	list<string>::const_iterator iterator;
+	clear();
+	vector<string>::const_iterator iterator;
 	for (iterator = lines_.begin(); iterator != lines_.end(); ++iterator) {
 	   printw((*iterator).c_str());
 		printw("\n");
 	}
 	refresh();
+}
+
+void FileContentBuffer::save() {
+	ofstream outfile("out.txt");
+	vector<string>::const_iterator iterator;
+	for (iterator = lines_.begin(); iterator != lines_.end(); ++iterator) {
+	   outfile << (*iterator).c_str();
+	   outfile << "\n";
+	}
+	outfile.close();
+}
+
+void FileContentBuffer::delete_line(int y) {
+	clrtoeol();
+}
+
+void FileContentBuffer::delete_char(int x, int y, int direction) {
+	if (direction == 1) {
+		lines_[y].erase(x-1, 1);
+	}
+	if (direction == -1) {
+		lines_[y].erase(x, 1);
+	}
+	print();
 }
 
 int main(int argc, char* argv[])
@@ -74,21 +104,26 @@ int main(int argc, char* argv[])
 			case KEY_RIGHT: 			x++; break;
 			case KEY_UP:	if (y>0)	y--; break;
 			case KEY_DOWN: 			y++; break;
+			case 4: 
+				// Ctrl+A=1, Ctrl+B=2, Ctrl+C=3, Ctrl+D=4, ...
+				file.delete_line(y+1);
+				break;
+			case KEY_BACKSPACE:
+				file.delete_char(x, y, 1); x--; break;
+			case KEY_DC:
+				file.delete_char(x, y, -1); break;
 			default:
 				cout << "UNKNOWN: " << cursor << " ";
 		}
 		move(y, x);
 		refresh();
 	}
+	file.save();
 	
 	endwin();
 	return 0;
 }
 /*
-	HOMEWORK:
-	methods save() and delete() in FileContentBuffer
-	save() -> save file after 'q' is pressed and write it in "ofstream" parameter
-	delete(x,y) -> delete text in lines_ (lines_[y]) using Backspace or Delete button
-	lines_ must be a vector
+	Backspace - do not throw the error; concat the two lines
 	
 */
