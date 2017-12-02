@@ -12,10 +12,9 @@ class FileException {
 };
 
 class FileContentBuffer {
-	vector<string> lines_;
 	string filename_;
-	
 public:
+	vector<string> lines_;	
 	FileContentBuffer(string file);
 	void load();
 	void print();
@@ -100,16 +99,49 @@ int main(int argc, char* argv[])
 	
 	while ((cursor = getch()) != 'q') {
 		switch(cursor) {
-			case KEY_LEFT:	if (x>0) x--; break;
-			case KEY_RIGHT: 			x++; break;
-			case KEY_UP:	if (y>0)	y--; break;
-			case KEY_DOWN: 			y++; break;
-			case 4: 
-				// Ctrl+A=1, Ctrl+B=2, Ctrl+C=3, Ctrl+D=4, ...
+			case KEY_LEFT:
+				if (x-1 >= 0) {
+					x--;
+				} else if (x == 0 && y-1 >= 0) {
+					x=(int) file.lines_[y].length();
+					y--;
+				}
+				break;
+			case KEY_RIGHT:
+				if (x+1 <= (int) file.lines_[y].length()) {
+					x++;
+				}
+				else if (y+2 < (int) file.lines_.size()) {
+					x=0;
+					y++;
+				}
+				break;
+			case KEY_UP:
+				if (y>0)	y--; break;
+			case KEY_DOWN:
+				if (y+2 < (int) file.lines_.size()) {
+					y++;
+				}
+				break;
+			case 4: // Ctrl+A=1, Ctrl+B=2, Ctrl+C=3, Ctrl+D=4, ...
 				file.delete_line(y+1);
 				break;
 			case KEY_BACKSPACE:
-				file.delete_char(x, y, 1); x--; break;
+				if (x == 0 && y > 0) {
+					x = file.lines_[y-1].size();
+					file.lines_[y-1] += file.lines_[y];
+					file.delete_line(y);
+					y--;
+				}
+				else if (x == 0 && y == 0) {
+					x=0;
+					y=0;
+				}
+				else {
+					file.delete_char(x, y, 1);
+					x--;
+				}
+				break;
 			case KEY_DC:
 				file.delete_char(x, y, -1); break;
 			default:
@@ -123,7 +155,3 @@ int main(int argc, char* argv[])
 	endwin();
 	return 0;
 }
-/*
-	Backspace - do not throw the error; concat the two lines
-	
-*/
