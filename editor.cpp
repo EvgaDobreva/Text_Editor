@@ -23,8 +23,12 @@ public:
 	void delete_char(int x, int y, int direction);
 	void insert_char(int& x, int& y, char cursor);
 	void new_line(int y);
+	void move_key_left(int& y, int& x);
+	void move_key_right(int& y, int& x);
 	void move_key_up(int& y, int& x);
 	void move_key_down(int& y, int& x);
+	void move_key_backspace(int& y, int& x);
+	void move_key_delete(int& y, int& x);
 };
 
 FileContentBuffer::FileContentBuffer(string file) {
@@ -109,6 +113,25 @@ void FileContentBuffer::new_line(int y) {
 	lines_.insert(lines_.begin()+y, "");
 }
 
+void FileContentBuffer::move_key_left(int& y, int& x) {
+	if (x-1 >= 0) {
+		x--;
+	}
+	else if (x == 0 && y-1 >= 0) {
+		x=(int) lines_[--y].length();
+	}
+}
+
+void FileContentBuffer::move_key_right(int& y, int& x) {
+	if (x+1 <= (int) lines_[y].length()) {
+		x++;
+	}
+	else if (y+2 < (int) lines_.size()) {
+		x=0;
+		y++;
+	}
+}
+
 void FileContentBuffer::move_key_up(int& y, int& x) {
 	if (y>0) {
 		if (lines_[y-1].size() < lines_[y].size()) {
@@ -124,6 +147,33 @@ void FileContentBuffer::move_key_down(int& y, int& x) {
 			x=(int) lines_[y+1].length();
 		}
 		y++;
+	}
+}
+
+void FileContentBuffer::move_key_backspace(int& y, int& x) {
+	if (x == 0 && y > 0) {
+		x = lines_[y-1].size();
+		lines_[y-1] += lines_[y];
+		delete_line(y);
+		y--;
+	}
+	else if (x == 0 && y == 0) {
+		x=0;
+		y=0;
+	}
+	else {
+		delete_char(x, y, 1);
+		x--;
+	}
+}
+
+void FileContentBuffer::move_key_delete(int& y, int& x) {
+	if (x == (int) lines_[y].size()) {
+		lines_[y] += lines_[y+1];
+		delete_line(y+1);
+	}
+	else {
+		delete_char(x, y, -1);
 	}
 }
 
@@ -152,20 +202,10 @@ int main(int argc, char* argv[])
 	while ((cursor = getch()) != 'q') {
 		switch(cursor) {
 			case KEY_LEFT:
-				if (x-1 >= 0) {
-					x--;
-				} else if (x == 0 && y-1 >= 0) {
-					x=(int) file.lines_[--y].length();
-				}
+				file.move_key_left(y, x);
 				break;
 			case KEY_RIGHT:
-				if (x+1 <= (int) file.lines_[y].length()) {
-					x++;
-				}
-				else if (y+2 < (int) file.lines_.size()) {
-					x=0;
-					y++;
-				}
+				file.move_key_right(y, x);
 				break;
 			case KEY_UP:
 				file.move_key_up(y, x);
@@ -177,29 +217,10 @@ int main(int argc, char* argv[])
 				file.delete_line(y);
 				break;
 			case KEY_BACKSPACE:
-				if (x == 0 && y > 0) {
-					x = file.lines_[y-1].size();
-					file.lines_[y-1] += file.lines_[y];
-					file.delete_line(y);
-					y--;
-				}
-				else if (x == 0 && y == 0) {
-					x=0;
-					y=0;
-				}
-				else {
-					file.delete_char(x, y, 1);
-					x--;
-				}
+				file.move_key_backspace(y, x);
 				break;
 			case KEY_DC:
-				if (x == (int) file.lines_[y].size()) {
-					file.lines_[y] += file.lines_[y+1];
-					file.delete_line(y+1);
-				}
-				else {
-					file.delete_char(x, y, -1);
-				}
+				file.move_key_delete(y, x);
 				break;
 			default:
 				file.insert_char(x, y, char(cursor));
