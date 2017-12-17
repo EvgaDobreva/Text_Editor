@@ -4,6 +4,12 @@
 #include <sstream>
 #include <list>
 #include <vector>
+#include <iterator>
+#include <string>
+#include <stdexcept>
+
+
+#define ctrl(x) ((x) & 0x1f)
 
 using namespace std;
 
@@ -13,8 +19,8 @@ class FileException {
 
 class FileContentBuffer {
 	string filename_;
-public:
-	vector<string> lines_;	
+	vector<string> lines_;
+public:	
 	FileContentBuffer(string file);
 	void load();
 	void print();
@@ -29,6 +35,8 @@ public:
 	void move_key_down(int& y, int& x);
 	void move_key_backspace(int& y, int& x);
 	void move_key_delete(int& y, int& x);
+	void word_forward(int& y, int& x);
+	void word_backwards(int& y, int& x);
 };
 
 FileContentBuffer::FileContentBuffer(string file) {
@@ -52,9 +60,14 @@ void FileContentBuffer::load() {
 void FileContentBuffer::print() {
 	clear();
 	vector<string>::const_iterator iterator;
+	int counter=0;
 	for (iterator = lines_.begin(); iterator != lines_.end(); ++iterator) {
 	   printw((*iterator).c_str());
 		printw("\n");
+		counter++;
+		if (counter == LINES-1) {
+			break;
+		}
 	}
 	refresh();
 }
@@ -95,11 +108,11 @@ void FileContentBuffer::insert_char(int& x, int& y, char cursor) {
 			x=0;
 		}
 		else {
-			string first = lines_[y].substr(0, x-1);
-			string second = lines_[y].substr(x, lines_[y].length() - x);
+			string first=lines_[y].substr(0, x-1);
+			string second=lines_[y].substr(x, lines_[y].length() - x);
 			new_line(y);
-			lines_[y] = first;
-			lines_[y+1] = second;
+			lines_[y]=first;
+			lines_[y+1]=second;
 			x=0;
 		}
 		y++;
@@ -177,6 +190,28 @@ void FileContentBuffer::move_key_delete(int& y, int& x) {
 	}
 }
 
+void FileContentBuffer::word_forward(int& y, int& x) {
+	int next_space_index = lines_[y].find(' ', x);
+	if (next_space_index == -1 && y+1 < (int) lines_.size()) {
+		y++;
+	}
+	x=next_space_index + 1;
+}
+
+void FileContentBuffer::word_backwards(int& y, int& x) {
+	int next_space_index=lines_[y].rfind(' ', x);
+	if (next_space_index == -1 && y > 0) {
+		y--;
+		x=0;
+	}
+	if (next_space_index - 1 < 0) {
+		x=0;
+	}
+	else {
+		x=next_space_index - 1;
+	}
+}
+
 int main(int argc, char* argv[])
 {	
 	if (argc < 2) {
@@ -200,7 +235,8 @@ int main(int argc, char* argv[])
 	refresh();
 	
 	while ((cursor = getch()) != 'q') {
-		switch(cursor) {
+		string status="";
+		switch(cursor) {		
 			case KEY_LEFT:
 				file.move_key_left(y, x);
 				break;
@@ -222,18 +258,37 @@ int main(int argc, char* argv[])
 			case KEY_DC:
 				file.move_key_delete(y, x);
 				break;
+			case 14:
+				file.save();
+				status="Save";
+			case 23:
+				file.word_forward(y, x);
+				break;
+			case 2:
+				file.word_backwards(y, x);
+				break;
 			default:
-				file.insert_char(x, y, char(cursor));
+				if (cursor >= ' ' && cursor <= '~') {
+					file.insert_char(x, y, char(cursor));
+				}
 		}
+		
 		file.print();
+		cout << status;
 		move(y, x);
 		refresh();
 	}
-	file.save();
 	
 	endwin();
 	return 0;
 }
 /*
 	1. Change 'q' to Ctrl+q when we exit the editor.
+	2. Moving word by word with control+keys.
+	
+	3. Make the status line print 'status' and color it invertly (black text and white background)
+	
+	3. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда) - 100%
+	4. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e) - 100%
+	5. как се прави селектиране на текст (shift+arrows) за наляво и надясно
 */
