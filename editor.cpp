@@ -7,7 +7,7 @@
 #include <iterator>
 #include <string>
 #include <stdexcept>
-
+#include <termios.h>
 
 #define ctrl(x) ((x) & 0x1f)
 
@@ -223,6 +223,11 @@ int main(int argc, char* argv[])
 	cbreak();
    keypad(stdscr, TRUE);
    noecho();
+   
+   struct termios options;
+   tcgetattr(2, &options);
+   options.c_iflag &= ~(IXON|IXOFF);
+   tcsetattr(2, TCSAFLUSH, &options);
 
 	FileContentBuffer file(argv[1]);
 	file.load();
@@ -234,8 +239,8 @@ int main(int argc, char* argv[])
 	move(y, x);
 	refresh();
 	
-	while ((cursor = getch()) != 'q') {
-		string status="";
+	while ((cursor = getch()) != 17) {
+		const char* status="";
 		switch(cursor) {		
 			case KEY_LEFT:
 				file.move_key_left(y, x);
@@ -258,9 +263,10 @@ int main(int argc, char* argv[])
 			case KEY_DC:
 				file.move_key_delete(y, x);
 				break;
-			case 14:
+			case 19:
 				file.save();
 				status="Save";
+				break;
 			case 23:
 				file.word_forward(y, x);
 				break;
@@ -274,7 +280,7 @@ int main(int argc, char* argv[])
 		}
 		
 		file.print();
-		cout << status;
+		printw(status);
 		move(y, x);
 		refresh();
 	}
@@ -283,12 +289,11 @@ int main(int argc, char* argv[])
 	return 0;
 }
 /*
-	1. Change 'q' to Ctrl+q when we exit the editor.
-	2. Moving word by word with control+keys.
+	2. Moving word by word with control+keys. TODO: FIX moving forward and backward when there are multiple spaces.
 	
 	3. Make the status line print 'status' and color it invertly (black text and white background)
 	
 	3. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда) - 100%
-	4. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e) - 100%
-	5. как се прави селектиране на текст (shift+arrows) за наляво и надясно
+	4. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e) - 100% да бъде направено
+	5. как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
 */
