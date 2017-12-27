@@ -9,8 +9,6 @@
 #include <stdexcept>
 #include <termios.h>
 
-#define ctrl(x) ((x) & 0x1f)
-
 using namespace std;
 
 class FileException {
@@ -37,6 +35,10 @@ public:
 	void move_key_delete(int& y, int& x);
 	void word_forward(int& y, int& x);
 	void word_backwards(int& y, int& x);
+	void line_forward(int& y, int& x);
+	void line_backwards(int& y, int& x);
+	void file_forward(int& y, int& x);
+	void file_backwards(int& y, int& x);
 };
 
 FileContentBuffer::FileContentBuffer(string file) {
@@ -212,6 +214,22 @@ void FileContentBuffer::word_backwards(int& y, int& x) {
 	}
 }
 
+void FileContentBuffer:: line_forward(int& y, int& x) {
+   
+}
+
+void FileContentBuffer:: line_backwards(int& y, int& x) {
+   
+}
+
+void FileContentBuffer:: file_forward(int& y, int& x) {
+   
+}
+
+void FileContentBuffer:: file_backwards(int& y, int& x) {
+   
+}
+
 int main(int argc, char* argv[])
 {	
 	if (argc < 2) {
@@ -242,45 +260,78 @@ int main(int argc, char* argv[])
 	while ((cursor = getch()) != 17) {
 		const char* status="";
 		switch(cursor) {		
-			case KEY_LEFT:
+			case KEY_LEFT: // left
 				file.move_key_left(y, x);
+				status="Left";
 				break;
-			case KEY_RIGHT:
+			case KEY_RIGHT: // right
 				file.move_key_right(y, x);
+				status="Right";
 				break;
-			case KEY_UP:
+			case KEY_UP: // up
 				file.move_key_up(y, x);
+				status="Up";
 				break;
-			case KEY_DOWN:
+			case KEY_DOWN: // down
 				file.move_key_down(y, x);
+				status="Down";
 				break;
-			case 4: // Ctrl+A=1, Ctrl+B=2, Ctrl+C=3, Ctrl+D=4, ...
+			case 4: // Ctrl+D=4
 				file.delete_line(y);
+				status="Line deleted";
 				break;
-			case KEY_BACKSPACE:
+			case KEY_BACKSPACE: // backspace
 				file.move_key_backspace(y, x);
+				status="Character deleted using BACKSPACE";
 				break;
-			case KEY_DC:
+			case KEY_DC: // delete
 				file.move_key_delete(y, x);
+				status="Character deleted using DELETE";
 				break;
-			case 19:
+			case 19: // Ctrl+S
 				file.save();
-				status="Save";
+				status="File Saved";
 				break;
-			case 23:
+			case 23: // Ctrl+W
 				file.word_forward(y, x);
+				status="Moved forward by word";
 				break;
-			case 2:
+			case 2: // Ctrl+B
 				file.word_backwards(y, x);
+				status="Moved backwards by word";
 				break;
+			case 1: // Ctrl+A
+			   file.line_forward(y, x);
+			   status="Forward on the line";
+			   break;
+			case 5: // Ctrl+E
+				file.line_backwards(y, x);
+				status="Backwards on the line";
+				break;
+			/*case :
+				file.file_forward(y, x);
+				status="Beginning of the file";
+				break;
+			case :
+				file.file_backwards(y, x);
+				status="End of file";
+				break;
+			*/
 			default:
 				if (cursor >= ' ' && cursor <= '~') {
 					file.insert_char(x, y, char(cursor));
 				}
 		}
-		
 		file.print();
-		printw(status);
+		move(LINES-1, 0);
+
+		attron(A_REVERSE);
+		printw("Ln:%d, Col:%d  %s", y+1, x+1, status);
+		for(int i=0; i < COLS;i++) {
+			printw(" ");
+		}
+		attroff(A_REVERSE);
+
 		move(y, x);
 		refresh();
 	}
@@ -289,11 +340,9 @@ int main(int argc, char* argv[])
 	return 0;
 }
 /*
-	2. Moving word by word with control+keys. TODO: FIX moving forward and backward when there are multiple spaces.
-	
-	3. Make the status line print 'status' and color it invertly (black text and white background)
-	
-	3. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда) - 100%
-	4. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e) - 100% да бъде направено
-	5. как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
+	1. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда) - 100%
+	2. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e) - 100% да бъде направено
+	3. как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
+
+   1. Moving word by word with control+keys. TODO: FIX moving forward and backward when there are multiple spaces.
 */
