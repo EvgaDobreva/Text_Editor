@@ -23,7 +23,7 @@ class FileContentBuffer {
 public:	
 	FileContentBuffer(string file);
 	void load();
-	void print(int& y, int& x);
+	void print(int& cursor_y, int& cursor_x);
 	void save();
 	void delete_line(int y);
 	void delete_char(int x, int y, int direction);
@@ -64,33 +64,54 @@ void FileContentBuffer::load() {
 	file.close();
 }
 
-void FileContentBuffer::print(int& y, int& x) {
-	clear();
-	vector<string>::const_iterator iterator;
-	int lines_count;
+void FileContentBuffer::print(int& cursor_y, int& cursor_x) {
+  clear();
+  vector<string>::const_iterator iterator;
+  int lines_count;
 
-   if (lines_.size() < (size_t) LINES - 1) {
-      lines_count=lines_.size();
-   }
-   else {
-      lines_count=LINES - 1;
-   }
+  if (lines_.size() < (size_t) LINES - 1) {
+    lines_count=lines_.size();
+  }
+  else {
+    lines_count=LINES - 1;
+  }
 
-   for (int row=0; row < lines_count; row++) {
-      for(int column=0; column < (int) lines_[row].length(); column++) {
-         attroff(A_REVERSE);
-         if (selection_x != -1) {
-            if (row == selection_y && column >= selection_x) {
-               if (row == y && column < x) {
-                  attron(A_REVERSE);
-               }
-            }
-         }
-         printw("%c", lines_[row][column]);
-      }
-      printw("\n");
-   }
-	refresh();
+  int y1, x1, y2, x2;
+
+  if (selection_y > cursor_y || (selection_y == cursor_y && selection_x > cursor_x))
+    {
+      // selection is bigger than cursor
+      y1 = cursor_y;
+      x1 = cursor_x;
+      y2 = selection_y;
+      x2 = selection_x;
+    }
+  else
+    {
+      // cursor is bigger than selection
+      y1 = selection_y;
+      x1 = selection_x;
+      y2 = cursor_y;
+      x2 = cursor_x;
+    }
+
+  for (int row=0; row < lines_count; row++) {
+    for(int column=0; column < (int) lines_[row].length(); column++) {
+      attroff(A_REVERSE);
+
+      if (selection_x != -1 &&
+          (row > y1 || (row == y1 && column >= x1)) &&
+          (row < y2 || (row == y2 && column < x2)))
+        {
+          attron(A_REVERSE);
+        }
+
+      printw("%c", lines_[row][column]);
+    }
+    printw("\n");
+  }
+
+  refresh();
 }
 
 void FileContentBuffer::save() {
@@ -387,9 +408,15 @@ int main(int argc, char* argv[])
 	return 0;
 }
 /*
-	1. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда) - 100%
-	2. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt) - 100% да бъде направено
-	3. как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
+   TODO:
+   1. Да се оправи Backspace
+   2. Местене на курсора със стрелките
+   3. Enter команда за добавяне на нови редове
+   4. Преминаване на следващата дума - не работи на последния ред, ако има текст
+   5. Delete при края на файл - забива
+   6. Местене дума по дума - да се поправи, когато има повече спейса.
 
-   1. Moving word by word with control+keys. TODO: FIX moving forward and backward when there are multiple spaces.
+	7. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда)  Готово!
+	8. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt)  Готово!
+	9. как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
 */
