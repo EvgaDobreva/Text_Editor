@@ -181,7 +181,7 @@ void FileContentBuffer::move_key_right(int& y, int& x) {
     if (x+1 <= (int) lines_[y].length()) {
         x++;
     }
-    else if (y+2 < (int) lines_.size()) {
+    else if (y+1 < (int) lines_.size()) {
         x=0;
         y++;
     }
@@ -410,7 +410,6 @@ int main(int argc, char* argv[])
 }
 /*
    TODO:
-   2. Местене на курсора със стрелките
    3. Enter команда за добавяне на нови редове
    4. Преминаване на следващата дума - не работи на последния ред, ако има текст
    5. Delete при края на файл - забива
