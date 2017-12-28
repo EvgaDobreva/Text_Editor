@@ -329,6 +329,7 @@ int main(int argc, char* argv[])
                 status << "Line deleted";
                 break;
             case KEY_BACKSPACE: // backspace
+            case 127:
                 file.move_key_backspace(y, x);
                 status << "Deleting using Backspace";
                 break;
@@ -409,7 +410,6 @@ int main(int argc, char* argv[])
 }
 /*
    TODO:
-   1. Да се оправи Backspace
    2. Местене на курсора със стрелките
    3. Enter команда за добавяне на нови редове
    4. Преминаване на следващата дума - не работи на последния ред, ако има текст
