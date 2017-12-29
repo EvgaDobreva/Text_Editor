@@ -241,6 +241,7 @@ void FileContentBuffer::move_key_delete(int& y, int& x) {
 void FileContentBuffer::key_enter(int& y, int& x) {
     if (x == 0) {
         lines_.insert(lines_.begin() + y, "");
+        y++;
     }
     else if (x == (int) lines_[y].size()) {
         lines_.insert(lines_.begin() + y + 1, "");
@@ -248,7 +249,10 @@ void FileContentBuffer::key_enter(int& y, int& x) {
         x=0;
     }
     else {
-        // TODO: make a mew line and spit the text between the new and the current
+        lines_.insert(lines_.begin() + y + 1, lines_[y].substr(x));
+        lines_[y]=lines_[y].substr(0, x);
+        y++;
+        x=0;
     }
 }
 
@@ -451,11 +455,6 @@ int main(int argc, char* argv[])
     return 0;
 }
 /*
-   Commit - move by word, move_forward, key_delete, delete_line, word_backward, word_forward
-   TODO:
-   3. Enter команда за добавяне на нови редове
-   make a mew line and spit the text between the new and the current
-
     7. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда)  Готово!
     8. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt)  Готово!
     9. как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
