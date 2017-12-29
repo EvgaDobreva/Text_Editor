@@ -35,6 +35,7 @@ public:
     void move_key_down(int& y, int& x);
     void move_key_backspace(int& y, int& x);
     void move_key_delete(int& y, int& x);
+    void key_enter(int& y, int& x);
     void word_forward(int& y, int& x);
     void word_backwards(int& y, int& x);
     void line_begin(int& x);
@@ -126,8 +127,13 @@ void FileContentBuffer::save() {
 }
 
 void FileContentBuffer::delete_line(int y) {
-    clrtoeol();
-    lines_.erase(lines_.begin()+y);
+    //clrtoeol();
+    if (lines_.size() > 1) {
+        lines_.erase(lines_.begin()+y);
+    }
+    else {
+        lines_[0] = "";
+    }
 }
 
 void FileContentBuffer::delete_char(int x, int y, int direction) {
@@ -223,34 +229,65 @@ void FileContentBuffer::move_key_backspace(int& y, int& x) {
 }
 
 void FileContentBuffer::move_key_delete(int& y, int& x) {
-    if (x == (int) lines_[y].size()) {
+    if (x < (int) lines_[y].size()) {
+        delete_char(x, y, -1);
+    }
+    else if (y < (int) lines_.size() - 1) {
         lines_[y] += lines_[y+1];
         delete_line(y+1);
     }
+}
+
+void FileContentBuffer::key_enter(int& y, int& x) {
+    if (x == 0) {
+        lines_.insert(lines_.begin() + y, "");
+    }
+    else if (x == (int) lines_[y].size()) {
+        lines_.insert(lines_.begin() + y + 1, "");
+        y++;
+        x=0;
+    }
     else {
-        delete_char(x, y, -1);
+        // TODO: make a mew line and spit the text between the new and the current
     }
 }
 
 void FileContentBuffer::word_forward(int& y, int& x) {
     int next_space_index = lines_[y].find(' ', x);
-    if (next_space_index == -1 && y+1 < (int) lines_.size()) {
-        y++;
+    if (next_space_index >= 0) {
+        while(lines_[y][++next_space_index] == ' ');
+        x=next_space_index;
     }
-    x=next_space_index + 1;
+    else if(y == (int) lines_.size() - 1){
+        x=lines_[y].size();
+    }
+    else { 
+        y++;
+        x=0;
+    }
 }
 
 void FileContentBuffer::word_backwards(int& y, int& x) {
-    int next_space_index=lines_[y].rfind(' ', x);
-    if (next_space_index == -1 && y > 0) {
-        y--;
-        x=0;
+    if (x > 0) {
+        int next_space_index=lines_[y].rfind(' ', x - 1);
+        if (next_space_index >= 0) {
+            while(lines_[y][--next_space_index] == ' ');
+            x=next_space_index + 1;
+        }
+        else if(y == 0) {
+            x=0;
+        }
+        else {
+            y--;
+            x=lines_[y].size();
+        }
     }
-    if (next_space_index - 1 < 0) {
+    else if(y == 0) {
         x=0;
     }
     else {
-        x=next_space_index - 1;
+        y--;
+        x=lines_[y].size();
     }
 }
 
@@ -326,6 +363,7 @@ int main(int argc, char* argv[])
                 break;
             case 4: // Ctrl+D=4
                 file.delete_line(y);
+                x=0;
                 status << "Line deleted";
                 break;
             case KEY_BACKSPACE: // backspace
@@ -336,6 +374,10 @@ int main(int argc, char* argv[])
             case KEY_DC: // delete
                 file.move_key_delete(y, x);
                 status << "Deleting using Delete";
+                break;
+            case '\n':
+                file.key_enter(y, x);
+                status << "New line using Enter";
                 break;
             case 19: // Ctrl+S
                 file.save();
@@ -409,11 +451,10 @@ int main(int argc, char* argv[])
     return 0;
 }
 /*
+   Commit - move by word, move_forward, key_delete, delete_line, word_backward, word_forward
    TODO:
    3. Enter команда за добавяне на нови редове
-   4. Преминаване на следващата дума - не работи на последния ред, ако има текст
-   5. Delete при края на файл - забива
-   6. Местене дума по дума - да се поправи, когато има повече спейса.
+   make a mew line and spit the text between the new and the current
 
     7. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда)  Готово!
     8. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt)  Готово!
