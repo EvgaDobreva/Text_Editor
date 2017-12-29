@@ -43,6 +43,8 @@ public:
     void file_begin(int& y, int& x);
     void file_end(int& y, int& x);
     void set_selection(int y, int x);
+    void move_selection(int y, int x);
+    void remove_selection();
 };
 
 FileContentBuffer::FileContentBuffer(string file) {
@@ -314,8 +316,26 @@ void FileContentBuffer:: file_end(int& y, int& x) {
 }
 
 void FileContentBuffer:: set_selection(int y, int x) {
-    selection_x=x;
-    selection_y=y;
+    if (selection_x == -1) {
+        selection_x=x;
+        selection_y=y;
+    }
+    else {
+        selection_x=-1;
+        selection_y=-1;
+    }
+}
+
+void FileContentBuffer:: move_selection(int y, int x) {
+    if (selection_x == -1) {
+        selection_x=x;
+        selection_y=y;
+    }
+}
+
+void FileContentBuffer:: remove_selection() {
+    selection_x=-1;
+    selection_y=-1;
 }
 
 int main(int argc, char* argv[])
@@ -351,10 +371,12 @@ int main(int argc, char* argv[])
         switch(cursor) {        
             case KEY_LEFT: // left
                 file.move_key_left(y, x);
+                file.remove_selection();
                 status << "Left";
                 break;
             case KEY_RIGHT: // right
                 file.move_key_right(y, x);
+                file.remove_selection();
                 status << "Right";
                 break;
             case KEY_UP: // up
@@ -407,6 +429,16 @@ int main(int argc, char* argv[])
                 file.set_selection(y, x);
                 status << "Set selection";
                 break;
+            case KEY_SLEFT:
+                file.move_selection(y, x);
+                file.move_key_left(y, x);
+                status << "Moving selection using left";
+                break;
+            case KEY_SRIGHT:
+                file.move_selection(y, x);
+                file.move_key_right(y, x);
+                status << "Moving selection using right";
+                break;
             case 27: // ESC (alt was pressed along with another key)
                 cursor=getch();
                 switch(cursor) {
@@ -455,7 +487,10 @@ int main(int argc, char* argv[])
     return 0;
 }
 /*
-    7. преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда)  Готово!
-    8. преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt)  Готово!
-    9. как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
+    TODO:
+       - color whole line when selected 
+        
+    - преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда)  Готово!
+    - преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt)  Готово!
+    - как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
 */
