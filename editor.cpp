@@ -8,6 +8,7 @@
 #include <string>
 #include <stdexcept>
 #include <termios.h>
+#include <string.h>
 
 using namespace std;
 
@@ -21,7 +22,7 @@ class FileContentBuffer {
     int selection_x;
     int selection_y;
 public:    
-    FileContentBuffer(string file);
+    FileContentBuffer(string filename);
     void load();
     void print(int cursor_y, int cursor_x);
     void save();
@@ -47,8 +48,8 @@ public:
     void remove_selection();
 };
 
-FileContentBuffer::FileContentBuffer(string file) {
-    filename_=file;
+FileContentBuffer::FileContentBuffer(string filename) {
+    filename_=filename;
     selection_x=-1;
     selection_y=-1;
 }
@@ -355,28 +356,31 @@ int main(int argc, char* argv[])
         cout << "Need more arguments!" << endl;
         return 1;
     }
+    
+    const char* filename=argv[1];
 
     initscr();
     cbreak();
-   keypad(stdscr, TRUE);
-   noecho();
-   
-   struct termios options;
-   tcgetattr(2, &options);
-   options.c_iflag &= ~(IXON|IXOFF);
-   tcsetattr(2, TCSAFLUSH, &options);
+    keypad(stdscr, TRUE);
+    noecho();
+
+    struct termios options;
+    tcgetattr(2, &options);
+    options.c_iflag &= ~(IXON|IXOFF);
+    tcsetattr(2, TCSAFLUSH, &options);
     
     int x=0;
     int y=0;
 
-    FileContentBuffer file(argv[1]);
+    FileContentBuffer file(filename);
     file.load();
     file.print(y, x);
     
     int cursor;
     move(y, x);
     refresh();
-        
+    
+    
     while ((cursor = getch()) != 17) {
         ostringstream status;
         switch(cursor) {        
@@ -488,6 +492,8 @@ int main(int argc, char* argv[])
         for(int i=0; i < COLS;i++) {
             printw(" ");
         }
+        move(LINES-1, COLS - strlen(filename) - 1);
+        printw("%s ", filename);
         attroff(A_REVERSE);
 
         move(y, x);
@@ -499,7 +505,6 @@ int main(int argc, char* argv[])
 }
 /*
     TODO:
-       - color whole line when selected 
         
     - преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда)  Готово!
     - преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt)  Готово!
