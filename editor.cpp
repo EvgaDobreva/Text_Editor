@@ -23,7 +23,7 @@ class FileContentBuffer {
 public:    
     FileContentBuffer(string file);
     void load();
-    void print(int& cursor_y, int& cursor_x);
+    void print(int cursor_y, int cursor_x);
     void save();
     void delete_line(int y);
     void delete_char(int x, int y, int direction);
@@ -67,54 +67,65 @@ void FileContentBuffer::load() {
     file.close();
 }
 
-void FileContentBuffer::print(int& cursor_y, int& cursor_x) {
-  clear();
-  vector<string>::const_iterator iterator;
-  int lines_count;
-
-  if (lines_.size() < (size_t) LINES - 1) {
-    lines_count=lines_.size();
-  }
-  else {
-    lines_count=LINES - 1;
-  }
-
-  int y1, x1, y2, x2;
-
-  if (selection_y > cursor_y || (selection_y == cursor_y && selection_x > cursor_x))
-    {
-      // selection is bigger than cursor
-      y1 = cursor_y;
-      x1 = cursor_x;
-      y2 = selection_y;
-      x2 = selection_x;
+void FileContentBuffer::print(int cursor_y, int cursor_x) {
+    clear();
+    vector<string>::const_iterator iterator;
+    int lines_count;
+    
+    if (lines_.size() < (size_t) LINES - 1) {
+        lines_count=lines_.size();
     }
-  else
-    {
-      // cursor is bigger than selection
-      y1 = selection_y;
-      x1 = selection_x;
-      y2 = cursor_y;
-      x2 = cursor_x;
+    else {
+        lines_count=LINES - 1;
     }
 
-  for (int row=0; row < lines_count; row++) {
-    for(int column=0; column < (int) lines_[row].length(); column++) {
-      attroff(A_REVERSE);
+    int y1, x1, y2, x2;
 
-      if (selection_x != -1 &&
-          (row > y1 || (row == y1 && column >= x1)) &&
-          (row < y2 || (row == y2 && column < x2)))
-        {
-          attron(A_REVERSE);
+    if (selection_y > cursor_y || (selection_y == cursor_y && selection_x > cursor_x)) {
+        // selection is bigger than cursor
+        y1 = cursor_y;
+        x1 = cursor_x;
+        y2 = selection_y;
+        x2 = selection_x;
+    }
+    else {
+        // cursor is bigger than selection
+        y1 = selection_y;
+        x1 = selection_x;
+        y2 = cursor_y;
+        x2 = cursor_x;
+    }
+
+    for (int row=0; row < lines_count; row++) {
+        if (selection_x != -1 && lines_[row].length() == 0 && row >= y1 && row < y2) {
+            for(int i=0; i < COLS; i++) {
+                attron(A_REVERSE);
+                printw(" ");
+            }
+        }
+        for(int column=0; column < (int) lines_[row].length(); column++) {
+            
+            if (selection_x != -1 &&
+                (row > y1 || (row == y1 && column >= x1)) &&
+                (row < y2 || (row == y2 && column < x2))) {
+                attron(A_REVERSE);
+                printw("%c", lines_[row][column]);
+                if (column == (int) lines_[row].length()-1 && row < y2) {
+                    for(int i=lines_[row].length(); i < COLS; i++) {
+                        printw(" ");
+                    }
+                }
+            }
+            else {
+                attroff(A_REVERSE);
+                printw("%c", lines_[row][column]);
+            }
         }
 
-      printw("%c", lines_[row][column]);
+        move(row+1, 0);
     }
-    printw("\n");
-  }
 
-  refresh();
+    refresh();
 }
 
 void FileContentBuffer::save() {
