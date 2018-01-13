@@ -10,339 +10,9 @@
 #include <termios.h>
 #include <string.h>
 
+#include "filecontentbuffer.h"
+
 using namespace std;
-
-class FileException {
-
-};
-
-class FileContentBuffer {
-    string filename_;
-    vector<string> lines_;
-    int selection_x;
-    int selection_y;
-public:    
-    FileContentBuffer(string filename);
-    void load();
-    void print(int cursor_y, int cursor_x);
-    void save();
-    void delete_line(int y);
-    void delete_char(int x, int y, int direction);
-    void insert_char(int& x, int& y, char cursor);
-    void new_line(int y);
-    void key_left(int& y, int& x);
-    void key_right(int& y, int& x);
-    void key_up(int& y, int& x);
-    void key_down(int& y, int& x);
-    void key_backspace(int& y, int& x);
-    void key_delete(int& y, int& x);
-    void key_enter(int& y, int& x);
-    void word_forward(int& y, int& x);
-    void word_backwards(int& y, int& x);
-    void line_begin(int& x);
-    void line_end(int& y, int& x);
-    void file_begin(int& y, int& x);
-    void file_end(int& y, int& x);
-    void set_selection(int y, int x);
-    void move_selection(int y, int x);
-    void remove_selection();
-};
-
-FileContentBuffer::FileContentBuffer(string filename) {
-    filename_=filename;
-    selection_x=-1;
-    selection_y=-1;
-}
-
-void FileContentBuffer::load() {
-    ifstream file;
-    string line;
-    file.open(filename_.c_str());
-    if (!file.is_open()) {
-        throw FileException();
-    }
-    while (!file.eof()) {
-        getline(file, line);
-        lines_.push_back(line);
-    }
-    file.close();
-}
-
-void FileContentBuffer::print(int cursor_y, int cursor_x) {
-    clear();
-    vector<string>::const_iterator iterator;
-    int lines_count;
-
-    if (lines_.size() < (size_t) LINES - 1) {
-        lines_count=lines_.size();
-    }
-    else {
-        lines_count=LINES - 1;
-    }
-
-    int y1, x1, y2, x2;
-
-    if (selection_y > cursor_y || (selection_y == cursor_y && selection_x > cursor_x)) {
-        // selection is bigger than cursor
-        y1 = cursor_y;
-        x1 = cursor_x;
-        y2 = selection_y;
-        x2 = selection_x;
-    }
-    else {
-        // cursor is bigger than selection
-        y1 = selection_y;
-        x1 = selection_x;
-        y2 = cursor_y;
-        x2 = cursor_x;
-    }
-
-    for (int row = 0; row < lines_count; row++) {
-        if (selection_x != -1 && row > y1 && row <= y2) {
-            int row_length = lines_[row - 1].length ();
-            move (row - 1, row_length);
-            for (int i = row_length; i < COLS; i++) {
-                attron(A_REVERSE);
-                printw(" ");
-            }
-        }
-
-        for (int col = 0; col < (int) lines_[row].length (); col++) {
-            if (selection_x != -1 &&
-            (row > y1 || (row == y1 && col >= x1)) &&
-            (row < y2 || (row == y2 && col <  x2))) {
-                attron (A_REVERSE);
-            }
-            else {
-                attroff (A_REVERSE);
-            }
-            printw("%c", lines_[row][col]);
-        }
-    move (row + 1, 0);
-    }
-
-    refresh();
-}
-
-void FileContentBuffer::save() {
-    ofstream outfile(filename_.c_str());
-    vector<string>::const_iterator iterator = lines_.begin();
-    outfile << (*iterator).c_str();
-    for (++iterator; iterator != lines_.end(); ++iterator) {
-        outfile << "\n";
-        outfile << (*iterator).c_str();
-    }
-    outfile.close();
-}
-
-void FileContentBuffer::delete_line(int y) {
-    if (lines_.size() > 1) {
-        lines_.erase(lines_.begin()+y);
-    }
-    else {
-        lines_[0] = "";
-    }
-}
-
-void FileContentBuffer::delete_char(int x, int y, int direction) {
-    if (direction == 1) {
-        lines_[y].erase(x-1, 1);
-    }
-    if (direction == -1) {
-        lines_[y].erase(x, 1);
-    }
-    print(y, x);
-}
-
-void FileContentBuffer::insert_char(int& x, int& y, char cursor) {
-    if (cursor == '\n') {
-        if (x == 0) {
-            new_line(y-1);
-        }
-        else if (x == (int) lines_[y].length()) {
-            new_line(y);
-        x=0;
-        }
-        else {
-            string first=lines_[y].substr(0, x-1);
-            string second=lines_[y].substr(x, lines_[y].length() - x);
-            new_line(y);
-            lines_[y]=first;
-            lines_[y+1]=second;
-            x=0;
-        }
-        y++;
-    }
-    else {
-        lines_[y].insert(x++, 1, char(cursor));
-    }
-}
-
-void FileContentBuffer::new_line(int y) {
-    lines_.insert(lines_.begin()+y, "");
-}
-
-void FileContentBuffer::key_left(int& y, int& x) {
-    if (x-1 >= 0) {
-        x--;
-    }
-    else if (x == 0 && y-1 >= 0) {
-        x=(int) lines_[--y].length();
-    }
-}
-
-void FileContentBuffer::key_right(int& y, int& x) {
-    if (x+1 <= (int) lines_[y].length()) {
-        x++;
-    }
-    else if (y+1 < (int) lines_.size()) {
-        x=0;
-        y++;
-    }
-}
-
-void FileContentBuffer::key_up(int& y, int& x) {
-    if (y>0) {
-        if (lines_[y-1].size() < lines_[y].size()) {
-            x=(int) lines_[y-1].length();
-        }
-        y--;
-    }
-}
-
-void FileContentBuffer::key_down(int& y, int& x) {
-    if (y+1 < (int) lines_.size()) {
-        if (lines_[y+1].size() < lines_[y].size()) {
-            x=(int) lines_[y+1].length();
-        }
-        y++;
-    }
-}
-
-void FileContentBuffer::key_backspace(int& y, int& x) {
-    if (x == 0 && y > 0) {
-        x = lines_[y-1].size();
-        lines_[y-1] += lines_[y];
-        delete_line(y);
-        y--;
-    }
-    else if (x == 0 && y == 0) {
-        x=0;
-        y=0;
-    }
-    else {
-        delete_char(x, y, 1);
-        x--;
-    }
-}
-
-void FileContentBuffer::key_delete(int& y, int& x) {
-    if (x < (int) lines_[y].size()) {
-        delete_char(x, y, -1);
-    }
-    else if (y < (int) lines_.size() - 1) {
-        lines_[y] += lines_[y+1];
-        delete_line(y+1);
-    }
-}
-
-void FileContentBuffer::key_enter(int& y, int& x) {
-    if (x == 0) {
-        lines_.insert(lines_.begin() + y, "");
-        y++;
-    }
-    else if (x == (int) lines_[y].size()) {
-        lines_.insert(lines_.begin() + y + 1, "");
-        y++;
-        x=0;
-    }
-    else {
-        lines_.insert(lines_.begin() + y + 1, lines_[y].substr(x));
-        lines_[y]=lines_[y].substr(0, x);
-        y++;
-        x=0;
-    }
-}
-
-void FileContentBuffer::word_forward(int& y, int& x) {
-    int next_space_index = lines_[y].find(' ', x);
-    if (next_space_index >= 0) {
-        while(lines_[y][++next_space_index] == ' ');
-            x=next_space_index;
-    }
-    else if(y == (int) lines_.size() - 1) {
-        x=lines_[y].size();
-    }
-    else { 
-        y++;
-        x=0;
-    }
-}
-
-void FileContentBuffer::word_backwards(int& y, int& x) {
-    if (x > 0) {
-        int next_space_index=lines_[y].rfind(' ', x - 1);
-        if (next_space_index >= 0) {
-            while(lines_[y][--next_space_index] == ' ');
-            x=next_space_index + 1;
-        }
-        else if(y == 0) {
-            x=0;
-        }
-        else {
-        y--;
-        x=lines_[y].size();
-        }
-    }
-    else if(y == 0) {
-        x=0;
-    }
-    else {
-        y--;
-        x=lines_[y].size();
-    }
-}
-
-void FileContentBuffer:: line_begin(int& x) {
-    x=0;
-}
-
-void FileContentBuffer:: line_end(int& y, int& x) {
-    x=lines_[y].length();
-}
-
-void FileContentBuffer:: file_begin(int& y, int& x) {
-    x=0;
-    y=0;
-}
-
-void FileContentBuffer:: file_end(int& y, int& x) {
-    y=lines_.size()-1;   
-    x=lines_[y].length();
-}
-
-void FileContentBuffer:: set_selection(int y, int x) {
-    if (selection_x == -1) {
-        selection_x=x;
-        selection_y=y;
-    }
-    else {
-        selection_x=-1;
-        selection_y=-1;
-    }
-}
-
-void FileContentBuffer:: move_selection(int y, int x) {
-    if (selection_x == -1) {
-        selection_x=x;
-        selection_y=y;
-    }
-}
-
-void FileContentBuffer:: remove_selection() {
-    selection_x=-1;
-    selection_y=-1;
-}
 
 int main(int argc, char* argv[])
 {
@@ -373,6 +43,8 @@ int main(int argc, char* argv[])
     int cursor;
     move(y, x);
     refresh();
+
+    vector< vector<string> > clipboard;
 
     while ((cursor = getch()) != 17) {
         ostringstream status;
@@ -417,10 +89,6 @@ int main(int argc, char* argv[])
             file.save();
             status << "File Saved";
             break;
-        case 23: // Ctrl+W
-            file.word_forward(y, x);
-            status << "Moved forward by word";
-            break;
         case 2: // Ctrl+B
             file.word_backwards(y, x);
             status << "Moved backwards by word";
@@ -447,16 +115,34 @@ int main(int argc, char* argv[])
             file.key_right(y, x);
             status << "Moving selection using right";
             break;
+        case 6: // Ctrl+F
+            file.find_text();
+            status << "Find text";
+            break;
+        case 23: // Ctrl+W
+            file.cut_selection(y, x, clipboard);
+            file.remove_selection();
+            status << "Cut";
+            break;
         case 27: // ESC (alt was pressed along with another key)
             cursor=getch();
             switch(cursor) {
-            case 'a':
+            case 'a': // alt+a
                 file.file_begin(y, x);
                 status << "Beginning of the file";
                 break;
-            case 'e':
+            case 'e': // alt+e
                 file.file_end(y, x);
                 status << "End of file";
+                break;
+            case 'f': // alt+f
+                file.word_forward(y, x);
+                status << "Moved forward by word";
+                break;
+            case 'w': // alt+w
+                file.copy_selection(y, x, clipboard);
+                file.remove_selection();
+                status << "Copy";
                 break;
             default:
                 status << "Unknown command: '" << (char) cursor << '\'';
@@ -477,11 +163,12 @@ int main(int argc, char* argv[])
                 status << '\'';
             }
         }
+  
         file.print(y, x);
         move(LINES-1, 0);
-
+        
         attron(A_REVERSE);
-        printw("Ln:%d, Col:%d  %s", y+1, x+1, status.str().c_str());
+        printw("Ln:%d, Col:%d Copied:%d  %s ", y+1, x+1, clipboard.size(), status.str().c_str());
         for(int i=0; i < COLS;i++) {
             printw(" ");
         }
@@ -497,7 +184,9 @@ int main(int argc, char* argv[])
 }
 /*
     TODO:
-    - преместване на курсора в началото и края на ред (Control+a - началото на реда Control+e - края на реда)  Готово!
-    - преместване на курсора в началото и края на файла (Control+shift+a и Control+shift+e - май не е възможно през терминал, направени са с Alt)  Готово!
-    - как се прави селектиране на текст (shift+arrows) за наляво и надясно KEY_SLEFT, KEY_SRIGHT ...
+    2. оцветяване на ключови думи в с++
+    3. копиране и поставяне на текст
+    4. търсене и замяна на текст
+    
+    ! Документ - описване на увода и първата част
 */

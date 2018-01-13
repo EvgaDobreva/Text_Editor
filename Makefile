@@ -1,2 +1,2 @@
 editor: editor.cpp
-	g++ -Wall -o $@ $< -lncurses -lform
+	g++ -Wall -o $@ $< filecontentbuffer.cpp  -lncurses -lform
