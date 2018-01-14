@@ -1,4 +1,4 @@
-#include "filecontentbuffer.h"
+#include "filecontentbuffer.hpp"
 
 #include <iostream>
 #include <ncurses.h>
@@ -90,7 +90,6 @@ void FileContentBuffer::print(int cursor_y, int cursor_x) {
         }
     move (row + 1, 0);
     }
-
     refresh();
 }
 
@@ -376,23 +375,17 @@ void FileContentBuffer:: cut_selection(int& y, int& x, vector< vector<string> >&
     if (begin_y == end_y) {
         copied.push_back(lines_[y].substr(begin_x, end_x-begin_x));
         lines_[y].erase(begin_x, end_x-begin_x);
-        for(int i=begin_y+1; i < end_y; i++) {
-                lines_.delete_line(y);
-        }
     }
     else {
         copied.push_back(lines_[begin_y].substr(begin_x));
         lines_[begin_y].erase(begin_x);
         for(int i=begin_y+1; i < end_y; i++) {
-            if (copied == '\n') {
-                lines_[y].length() -= lines_[y+1].length();
-                lines_.delete_line(y);
-            }
             copied.push_back(lines_[begin_y+1]);
             lines_.erase(lines_.begin()+begin_y+1);
         }
         copied.push_back(lines_[begin_y+1].substr(0, end_x));
-        lines_[begin_y+1].erase(0, end_x);
+        lines_[begin_y] += lines_[begin_y+1].substr(end_x);
+        lines_.erase(lines_.begin()+begin_y+1);
     }
     clipboard.push_back(copied);
     

@@ -10,7 +10,7 @@
 #include <termios.h>
 #include <string.h>
 
-#include "filecontentbuffer.h"
+#include "filecontentbuffer.hpp"
 
 using namespace std;
 
@@ -27,6 +27,10 @@ int main(int argc, char* argv[])
     cbreak();
     keypad(stdscr, TRUE);
     noecho();
+
+    //start_color();
+    //init_pair(1, COLOR_GREEN, COLOR_BLACK);
+    //attron(COLOR_PAIR(1));
 
     struct termios options;
     tcgetattr(2, &options);
@@ -163,7 +167,6 @@ int main(int argc, char* argv[])
                 status << '\'';
             }
         }
-  
         file.print(y, x);
         move(LINES-1, 0);
         
@@ -175,7 +178,7 @@ int main(int argc, char* argv[])
         move(LINES-1, COLS - strlen(filename) - 1);
         printw("%s ", filename);
         attroff(A_REVERSE);
-
+        
         move(y, x);
         refresh();
     }
