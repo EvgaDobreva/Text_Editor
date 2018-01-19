@@ -128,6 +128,10 @@ int main(int argc, char* argv[])
             file.remove_selection();
             status << "Cut";
             break;
+        case 22: // Ctrl+V
+            file.paste_selection(y, x, clipboard);
+            status << "Paste";
+            break;
         case 27: // ESC (alt was pressed along with another key)
             cursor=getch();
             switch(cursor) {
@@ -187,9 +191,9 @@ int main(int argc, char* argv[])
 }
 /*
     TODO:
-    2. оцветяване на ключови думи в с++
-    3. копиране и поставяне на текст
-    4. търсене и замяна на текст
+    1. оцветяване на ключови думи в с++
+    2. търсене и замяна на текст
+    3. Скролване
     
     ! Документ - описване на увода и първата част
 */

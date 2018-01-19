@@ -88,7 +88,7 @@ void FileContentBuffer::print(int cursor_y, int cursor_x) {
             }
             printw("%c", lines_[row][col]);
         }
-    move (row + 1, 0);
+        move (row + 1, 0);
     }
     refresh();
 }
@@ -172,19 +172,25 @@ void FileContentBuffer::key_right(int& y, int& x) {
 
 void FileContentBuffer::key_up(int& y, int& x) {
     if (y>0) {
-        if (lines_[y-1].size() < lines_[y].size()) {
+        if (x > (int) lines_[y-1].size()) {
             x=(int) lines_[y-1].length();
         }
         y--;
+    }
+    else {
+        x=0;
     }
 }
 
 void FileContentBuffer::key_down(int& y, int& x) {
     if (y+1 < (int) lines_.size()) {
-        if (lines_[y+1].size() < lines_[y].size()) {
+        if (x > (int) lines_[y+1].size()) {
             x=(int) lines_[y+1].length();
         }
         y++;
+    }
+    else {
+        x=lines_[y].size();
     }
 }
 
@@ -387,14 +393,29 @@ void FileContentBuffer:: cut_selection(int& y, int& x, vector< vector<string> >&
         lines_[begin_y] += lines_[begin_y+1].substr(end_x);
         lines_.erase(lines_.begin()+begin_y+1);
     }
+
     clipboard.push_back(copied);
     
     x=selection_x;
     y=selection_y;
 }
 
-void paste_selection(int& y, int& x, vector< vector<string> >& clipboard) {
-        
+void FileContentBuffer:: paste_selection(int& y, int& x, vector< vector<string> >& clipboard) {
+    if (clipboard.size() == 0) {
+        return;
+    }
+    vector<string> pasted=clipboard.back();
+    string text_after_x=lines_[y].substr(x);
+    lines_[y].erase(x);
+    lines_[y] += pasted[0];
+    y++;
+    for (size_t i=1; i < pasted.size(); i++) {
+        lines_.insert(lines_.begin()+y, pasted[i]);
+        y++;
+    }
+    y--;
+    x=lines_[y].length();
+    lines_[y] += text_after_x;
 }
 
 void FileContentBuffer:: find_text() {
