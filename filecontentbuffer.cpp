@@ -22,6 +22,9 @@ FileContentBuffer::FileContentBuffer(string filename) {
     filename_=filename;
     selection_x=-1;
     selection_y=-1;
+    scroll=0;
+    x=0;
+    y=0;
 }
 
 void FileContentBuffer::load() {
@@ -38,13 +41,12 @@ void FileContentBuffer::load() {
     file.close();
 }
 
-void FileContentBuffer::print(int cursor_y, int cursor_x) {
-    clear();
+void FileContentBuffer::print() {
     vector<string>::const_iterator iterator;
     int lines_count;
 
-    if (lines_.size() < (size_t) LINES - 1) {
-        lines_count=lines_.size();
+    if (lines_.size() - scroll < (size_t) LINES - 1) {
+        lines_count=lines_.size() - scroll;
     }
     else {
         lines_count=LINES - 1;
@@ -52,10 +54,10 @@ void FileContentBuffer::print(int cursor_y, int cursor_x) {
 
     int begin_y, begin_x, end_y, end_x;
 
-    if (selection_y > cursor_y || (selection_y == cursor_y && selection_x > cursor_x)) {
+    if (selection_y > y || (selection_y == y && selection_x > x)) {
         // selection is bigger than cursor
-        begin_y=cursor_y;
-        begin_x=cursor_x;
+        begin_y=y;
+        begin_x=x;
         end_y=selection_y;
         end_x=selection_x;
     }
@@ -63,14 +65,17 @@ void FileContentBuffer::print(int cursor_y, int cursor_x) {
         // cursor is bigger than selection
         begin_y=selection_y;
         begin_x=selection_x;
-        end_y=cursor_y;
-        end_x=cursor_x;
+        end_y=y;
+        end_x=x;
     }
 
-    for (int row=0; row < lines_count; row++) {
+    for (int i=0; i < lines_count; i++) {
+        int row=i+scroll;
+        move(i, 0);
+        
         if (selection_x != -1 && row > begin_y && row <= end_y) {
             int row_length=lines_[row-1].length();
-            move (row - 1, row_length);
+            move (i - 1, row_length);
             for (int i=row_length; i < COLS; i++) {
                 attron(A_REVERSE);
                 printw(" ");
@@ -88,9 +93,10 @@ void FileContentBuffer::print(int cursor_y, int cursor_x) {
             }
             printw("%c", lines_[row][col]);
         }
-        move (row + 1, 0);
     }
+    
     refresh();
+    move(y - scroll, x);
 }
 
 void FileContentBuffer::save() {
@@ -104,7 +110,7 @@ void FileContentBuffer::save() {
     outfile.close();
 }
 
-void FileContentBuffer::delete_line(int y) {
+void FileContentBuffer::delete_line() {
     if (lines_.size() > 1) {
         lines_.erase(lines_.begin()+y);
     }
@@ -113,29 +119,29 @@ void FileContentBuffer::delete_line(int y) {
     }
 }
 
-void FileContentBuffer::delete_char(int x, int y, int direction) {
+void FileContentBuffer::delete_char(int direction) {
     if (direction == 1) {
         lines_[y].erase(x-1, 1);
     }
     if (direction == -1) {
         lines_[y].erase(x, 1);
     }
-    print(y, x);
 }
 
-void FileContentBuffer::insert_char(int& x, int& y, char cursor) {
+void FileContentBuffer::insert_char(char cursor) {
     if (cursor == '\n') {
         if (x == 0) {
-            new_line(y-1);
+            y--;
+            new_line();
         }
         else if (x == (int) lines_[y].length()) {
-            new_line(y);
+            new_line();
             x=0;
         }
         else {
             string first=lines_[y].substr(0, x-1);
             string second=lines_[y].substr(x, lines_[y].length() - x);
-            new_line(y);
+            new_line();
             lines_[y]=first;
             lines_[y+1]=second;
             x=0;
@@ -147,11 +153,19 @@ void FileContentBuffer::insert_char(int& x, int& y, char cursor) {
     }
 }
 
-void FileContentBuffer::new_line(int y) {
+void FileContentBuffer::new_line() {
     lines_.insert(lines_.begin()+y, "");
 }
 
-void FileContentBuffer::key_left(int& y, int& x) {
+int FileContentBuffer::get_x() {
+    return x;
+}
+
+int FileContentBuffer::get_y() {
+    return y;
+}
+
+void FileContentBuffer::key_left() {
     if (x-1 >= 0) {
         x--;
     }
@@ -160,7 +174,7 @@ void FileContentBuffer::key_left(int& y, int& x) {
     }
 }
 
-void FileContentBuffer::key_right(int& y, int& x) {
+void FileContentBuffer::key_right() {
     if (x+1 <= (int) lines_[y].length()) {
         x++;
     }
@@ -170,35 +184,43 @@ void FileContentBuffer::key_right(int& y, int& x) {
     }
 }
 
-void FileContentBuffer::key_up(int& y, int& x) {
+void FileContentBuffer::key_up() {
     if (y>0) {
         if (x > (int) lines_[y-1].size()) {
             x=(int) lines_[y-1].length();
         }
         y--;
+        if (y < scroll) {
+            scroll--;
+        }
     }
     else {
         x=0;
     }
 }
 
-void FileContentBuffer::key_down(int& y, int& x) {
+void FileContentBuffer::key_down() {
     if (y+1 < (int) lines_.size()) {
         if (x > (int) lines_[y+1].size()) {
             x=(int) lines_[y+1].length();
         }
         y++;
+        
+        if (y == scroll + LINES - 1) {
+            scroll++;
+        }
     }
     else {
         x=lines_[y].size();
     }
+    
 }
 
-void FileContentBuffer::key_backspace(int& y, int& x) {
+void FileContentBuffer::key_backspace() {
     if (x == 0 && y > 0) {
         x=lines_[y-1].size();
         lines_[y-1] += lines_[y];
-        delete_line(y);
+        delete_line();
         y--;
     }
     else if (x == 0 && y == 0) {
@@ -206,22 +228,23 @@ void FileContentBuffer::key_backspace(int& y, int& x) {
         y=0;
     }
     else {
-        delete_char(x, y, 1);
+        delete_char(1);
         x--;
     }
 }
 
-void FileContentBuffer::key_delete(int& y, int& x) {
+void FileContentBuffer::key_delete() {
     if (x < (int) lines_[y].size()) {
-        delete_char(x, y, -1);
+        delete_char(-1);
     }
     else if (y < (int) lines_.size() - 1) {
         lines_[y] += lines_[y+1];
-        delete_line(y+1);
+        y++;
+        delete_line();
     }
 }
 
-void FileContentBuffer::key_enter(int& y, int& x) {
+void FileContentBuffer::key_enter() {
     if (x == 0) {
         lines_.insert(lines_.begin() + y, "");
         y++;
@@ -239,7 +262,7 @@ void FileContentBuffer::key_enter(int& y, int& x) {
     }
 }
 
-void FileContentBuffer::word_forward(int& y, int& x) {
+void FileContentBuffer::word_forward() {
     int next_space_index = lines_[y].find(' ', x);
     if (next_space_index >= 0) {
         while(lines_[y][++next_space_index] == ' ');
@@ -254,7 +277,7 @@ void FileContentBuffer::word_forward(int& y, int& x) {
     }
 }
 
-void FileContentBuffer::word_backwards(int& y, int& x) {
+void FileContentBuffer::word_backwards() {
     if (x > 0) {
         int next_space_index=lines_[y].rfind(' ', x - 1);
         if (next_space_index >= 0) {
@@ -278,25 +301,25 @@ void FileContentBuffer::word_backwards(int& y, int& x) {
     }
 }
 
-void FileContentBuffer:: line_begin(int& x) {
+void FileContentBuffer:: line_begin() {
     x=0;
 }
 
-void FileContentBuffer:: line_end(int& y, int& x) {
+void FileContentBuffer:: line_end() {
     x=lines_[y].length();
 }
 
-void FileContentBuffer:: file_begin(int& y, int& x) {
+void FileContentBuffer:: file_begin() {
     x=0;
     y=0;
 }
 
-void FileContentBuffer:: file_end(int& y, int& x) {
+void FileContentBuffer:: file_end() {
     y=lines_.size()-1;   
     x=lines_[y].length();
 }
 
-void FileContentBuffer:: set_selection(int y, int x) {
+void FileContentBuffer:: set_selection() {
     if (selection_x == -1) {
         selection_x=x;
         selection_y=y;
@@ -307,7 +330,7 @@ void FileContentBuffer:: set_selection(int y, int x) {
     }
 }
 
-void FileContentBuffer:: move_selection(int y, int x) {
+void FileContentBuffer:: move_selection() {
     if (selection_x == -1) {
         selection_x=x;
         selection_y=y;
@@ -319,7 +342,7 @@ void FileContentBuffer:: remove_selection() {
     selection_y=-1;
 }
 
-void FileContentBuffer:: copy_selection(int y, int x, vector< vector<string> >& clipboard) {
+void FileContentBuffer:: copy_selection(vector< vector<string> >& clipboard) {
     if (selection_y == -1 || (selection_y == y && selection_x == x)) {
         return;
     }
@@ -355,7 +378,7 @@ void FileContentBuffer:: copy_selection(int y, int x, vector< vector<string> >& 
     clipboard.push_back(copied);
 }
 
-void FileContentBuffer:: cut_selection(int& y, int& x, vector< vector<string> >& clipboard) {
+void FileContentBuffer:: cut_selection(vector< vector<string> >& clipboard) {
     if (selection_y == -1 || (selection_y == y && selection_x == x)) {
         return;
     }
@@ -400,7 +423,7 @@ void FileContentBuffer:: cut_selection(int& y, int& x, vector< vector<string> >&
     y=selection_y;
 }
 
-void FileContentBuffer:: paste_selection(int& y, int& x, vector< vector<string> >& clipboard) {
+void FileContentBuffer:: paste_selection(vector< vector<string> >& clipboard) {
     if (clipboard.size() == 0) {
         return;
     }
