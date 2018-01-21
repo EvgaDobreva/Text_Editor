@@ -11,6 +11,21 @@
 
 using namespace std;
 
+enum UndoType {
+    UNDO_CLIPBOARD,
+    UNDO_SMALL_CLIPBOARD,
+    UNDO_CONCAT_LINES,
+    UNDO_SPLIT_LINES,
+    UNDO_INSERT_WORD,
+};
+
+struct UndoInfo {
+    int x;
+    int y;
+    UndoType type;
+    int index;
+};
+
 class FileContentBuffer {
     string filename_;
     vector<string> lines_;
@@ -19,15 +34,14 @@ class FileContentBuffer {
     int scroll;
     int x;
     int y;
+    vector<UndoInfo> undo_history;
 public:    
     FileContentBuffer(string filename);
     void load();
     void print();
     void save();
     void delete_line();
-    void delete_char(int direction);
     void insert_char(char cursor);
-    void new_line();
     int get_x();
     int get_y();
     void key_left();
@@ -49,6 +63,7 @@ public:
     void copy_selection(vector< vector<string> >& clipboard);
     void cut_selection(vector< vector<string> >& clipboard);
     void paste_selection(vector< vector<string> >& clipboard);
+    void undo(vector< vector<string> >& clipboard);
     void find_text();
 };
 

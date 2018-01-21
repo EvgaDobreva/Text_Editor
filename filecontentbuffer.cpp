@@ -119,42 +119,22 @@ void FileContentBuffer::delete_line() {
     }
 }
 
-void FileContentBuffer::delete_char(int direction) {
-    if (direction == 1) {
-        lines_[y].erase(x-1, 1);
-    }
-    if (direction == -1) {
-        lines_[y].erase(x, 1);
-    }
-}
-
 void FileContentBuffer::insert_char(char cursor) {
-    if (cursor == '\n') {
-        if (x == 0) {
-            y--;
-            new_line();
-        }
-        else if (x == (int) lines_[y].length()) {
-            new_line();
-            x=0;
-        }
-        else {
-            string first=lines_[y].substr(0, x-1);
-            string second=lines_[y].substr(x, lines_[y].length() - x);
-            new_line();
-            lines_[y]=first;
-            lines_[y+1]=second;
-            x=0;
-        }
-        y++;
+    if (cursor != ' ' &&
+        undo_history.size() > 0 &&
+        undo_history[undo_history.size() - 1].type == UNDO_INSERT_WORD) {
+        undo_history[undo_history.size() - 1].index++;
     }
     else {
-        lines_[y].insert(x++, 1, char(cursor));
+        UndoInfo undo_info;
+        undo_info.x=x;
+        undo_info.y=y;
+        undo_info.type=UNDO_INSERT_WORD;
+        undo_info.index=1;
+        undo_history.push_back(undo_info);
     }
-}
 
-void FileContentBuffer::new_line() {
-    lines_.insert(lines_.begin()+y, "");
+    lines_[y].insert(x++, 1, cursor);    
 }
 
 int FileContentBuffer::get_x() {
@@ -220,31 +200,48 @@ void FileContentBuffer::key_backspace() {
     if (x == 0 && y > 0) {
         x=lines_[y-1].size();
         lines_[y-1] += lines_[y];
-        delete_line();
+        lines_.erase(lines_.begin()+y);
         y--;
+        
+        UndoInfo undo_info;
+        undo_info.x=x;
+        undo_info.y=y;
+        undo_info.type=UNDO_CONCAT_LINES;
+        undo_history.push_back(undo_info);
     }
     else if (x == 0 && y == 0) {
         x=0;
         y=0;
     }
     else {
-        delete_char(1);
+        lines_[y].erase(x-1, 1);
         x--;
     }
 }
 
 void FileContentBuffer::key_delete() {
     if (x < (int) lines_[y].size()) {
-        delete_char(-1);
+        lines_[y].erase(x, 1);
     }
     else if (y < (int) lines_.size() - 1) {
         lines_[y] += lines_[y+1];
-        y++;
-        delete_line();
+        lines_.erase(lines_.begin()+y+1);
+        
+        UndoInfo undo_info;
+        undo_info.x=x;
+        undo_info.y=y;
+        undo_info.type=UNDO_CONCAT_LINES;
+        undo_history.push_back(undo_info);
     }
 }
 
 void FileContentBuffer::key_enter() {
+    UndoInfo undo_info;
+    undo_info.x=x;
+    undo_info.y=y;
+    undo_info.type=UNDO_SPLIT_LINES;
+    undo_history.push_back(undo_info);
+    
     if (x == 0) {
         lines_.insert(lines_.begin() + y, "");
         y++;
@@ -417,6 +414,13 @@ void FileContentBuffer:: cut_selection(vector< vector<string> >& clipboard) {
         lines_.erase(lines_.begin()+begin_y+1);
     }
 
+    UndoInfo undo_info;
+    undo_info.x=begin_x;
+    undo_info.y=begin_y;
+    undo_info.type=UNDO_CLIPBOARD;
+    undo_info.index=clipboard.size();
+    undo_history.push_back(undo_info);
+   
     clipboard.push_back(copied);
     
     x=selection_x;
@@ -439,6 +443,10 @@ void FileContentBuffer:: paste_selection(vector< vector<string> >& clipboard) {
     y--;
     x=lines_[y].length();
     lines_[y] += text_after_x;
+}
+
+void FileContentBuffer:: undo(vector< vector<string> >& clipboard) {
+
 }
 
 void FileContentBuffer:: find_text() {
