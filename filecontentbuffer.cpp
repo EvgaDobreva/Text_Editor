@@ -25,6 +25,7 @@ FileContentBuffer::FileContentBuffer(string filename) {
     scroll=0;
     x=0;
     y=0;
+    last_action=ACTION_NONE;
 }
 
 void FileContentBuffer::load() {
@@ -42,6 +43,13 @@ void FileContentBuffer::load() {
 }
 
 void FileContentBuffer::print() {
+    if (y < scroll) {
+        scroll=y;
+    }
+    else if (y >= scroll + LINES - 1) {
+        scroll=y-LINES+2;
+    }
+    
     vector<string>::const_iterator iterator;
     int lines_count;
 
@@ -110,31 +118,50 @@ void FileContentBuffer::save() {
     outfile.close();
 }
 
-void FileContentBuffer::delete_line() {
+void FileContentBuffer::delete_line(vector< vector<string> >& clipboard) {
+    UndoInfo undo_info;
+    undo_info.x=x;
+    undo_info.y=y;
+    undo_info.type=ACTION_DELETE;
+    undo_info.index=clipboard.size();
+    undo_history.push_back(undo_info);
+
+    vector<string> paste;
+    paste.push_back(lines_[y]);
+    paste.push_back("");
+    clipboard.push_back(paste);
+
     if (lines_.size() > 1) {
         lines_.erase(lines_.begin()+y);
     }
     else {
         lines_[0]="";
     }
+    
+    last_action=ACTION_DELETE_LINE;
 }
 
-void FileContentBuffer::insert_char(char cursor) {
-    if (cursor != ' ' &&
-        undo_history.size() > 0 &&
-        undo_history[undo_history.size() - 1].type == UNDO_INSERT_WORD) {
-        undo_history[undo_history.size() - 1].index++;
+void FileContentBuffer::insert_char(char character) {
+    if (last_action == ACTION_INSERT_CHAR && character != ' ') {
+        //undo_history[undo_history.size() - 1].index++;
+        small_clipboard[small_clipboard.size() - 1] += character;
     }
     else {
         UndoInfo undo_info;
         undo_info.x=x;
         undo_info.y=y;
-        undo_info.type=UNDO_INSERT_WORD;
-        undo_info.index=1;
-        undo_history.push_back(undo_info);
+        undo_info.type=ACTION_INSERT_CHAR;
+        undo_info.index=small_clipboard.size();
+        undo_history.push_back(undo_info);        
+
+        string word;
+        word += character;
+        small_clipboard.push_back(word);
     }
 
-    lines_[y].insert(x++, 1, cursor);    
+    lines_[y].insert(x++, 1, character);
+    
+    last_action=ACTION_INSERT_CHAR;
 }
 
 int FileContentBuffer::get_x() {
@@ -152,6 +179,8 @@ void FileContentBuffer::key_left() {
     else if (x == 0 && y-1 >= 0) {
         x=(int) lines_[--y].length();
     }
+    
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer::key_right() {
@@ -162,6 +191,8 @@ void FileContentBuffer::key_right() {
         x=0;
         y++;
     }
+    
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer::key_up() {
@@ -170,13 +201,12 @@ void FileContentBuffer::key_up() {
             x=(int) lines_[y-1].length();
         }
         y--;
-        if (y < scroll) {
-            scroll--;
-        }
     }
     else {
         x=0;
     }
+    
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer::key_down() {
@@ -185,15 +215,12 @@ void FileContentBuffer::key_down() {
             x=(int) lines_[y+1].length();
         }
         y++;
-        
-        if (y == scroll + LINES - 1) {
-            scroll++;
-        }
     }
     else {
         x=lines_[y].size();
     }
     
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer::key_backspace() {
@@ -206,7 +233,7 @@ void FileContentBuffer::key_backspace() {
         UndoInfo undo_info;
         undo_info.x=x;
         undo_info.y=y;
-        undo_info.type=UNDO_CONCAT_LINES;
+        undo_info.type=ACTION_BACKSPACE;
         undo_history.push_back(undo_info);
     }
     else if (x == 0 && y == 0) {
@@ -217,6 +244,8 @@ void FileContentBuffer::key_backspace() {
         lines_[y].erase(x-1, 1);
         x--;
     }
+    
+    last_action=ACTION_BACKSPACE;
 }
 
 void FileContentBuffer::key_delete() {
@@ -230,16 +259,18 @@ void FileContentBuffer::key_delete() {
         UndoInfo undo_info;
         undo_info.x=x;
         undo_info.y=y;
-        undo_info.type=UNDO_CONCAT_LINES;
+        undo_info.type=ACTION_DELETE;
         undo_history.push_back(undo_info);
     }
+    
+    last_action=ACTION_DELETE;
 }
 
 void FileContentBuffer::key_enter() {
     UndoInfo undo_info;
     undo_info.x=x;
     undo_info.y=y;
-    undo_info.type=UNDO_SPLIT_LINES;
+    undo_info.type=ACTION_NEW_LINE;
     undo_history.push_back(undo_info);
     
     if (x == 0) {
@@ -257,6 +288,8 @@ void FileContentBuffer::key_enter() {
         y++;
         x=0;
     }
+    
+    last_action=ACTION_NEW_LINE;
 }
 
 void FileContentBuffer::word_forward() {
@@ -272,6 +305,8 @@ void FileContentBuffer::word_forward() {
         y++;
         x=0;
     }
+    
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer::word_backwards() {
@@ -296,24 +331,32 @@ void FileContentBuffer::word_backwards() {
         y--;
         x=lines_[y].size();
     }
+    
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer:: line_begin() {
     x=0;
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer:: line_end() {
     x=lines_[y].length();
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer:: file_begin() {
     x=0;
     y=0;
+    
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer:: file_end() {
     y=lines_.size()-1;   
     x=lines_[y].length();
+    
+    last_action=ACTION_MOVE;
 }
 
 void FileContentBuffer:: set_selection() {
@@ -373,6 +416,8 @@ void FileContentBuffer:: copy_selection(vector< vector<string> >& clipboard) {
         copied.push_back(lines_[end_y].substr(0, end_x));
     }
     clipboard.push_back(copied);
+    
+    last_action=ACTION_COPY;
 }
 
 void FileContentBuffer:: cut_selection(vector< vector<string> >& clipboard) {
@@ -417,7 +462,7 @@ void FileContentBuffer:: cut_selection(vector< vector<string> >& clipboard) {
     UndoInfo undo_info;
     undo_info.x=begin_x;
     undo_info.y=begin_y;
-    undo_info.type=UNDO_CLIPBOARD;
+    undo_info.type=ACTION_CUT;
     undo_info.index=clipboard.size();
     undo_history.push_back(undo_info);
    
@@ -425,6 +470,8 @@ void FileContentBuffer:: cut_selection(vector< vector<string> >& clipboard) {
     
     x=selection_x;
     y=selection_y;
+    
+    last_action=ACTION_CUT;
 }
 
 void FileContentBuffer:: paste_selection(vector< vector<string> >& clipboard) {
@@ -443,12 +490,29 @@ void FileContentBuffer:: paste_selection(vector< vector<string> >& clipboard) {
     y--;
     x=lines_[y].length();
     lines_[y] += text_after_x;
+    
+    last_action=ACTION_PASTE;
 }
 
 void FileContentBuffer:: undo(vector< vector<string> >& clipboard) {
-
+    if (undo_history.size() == 0) {
+        return;
+    }
+    
+    UndoInfo undo_info=undo_history.back();
+    undo_history.pop_back();
+    
+    switch(undo_info.type) {
+        case ACTION_INSERT_CHAR:
+            lines_[undo_info.y].erase(undo_info.x, small_clipboard[undo_info.index].size());
+            x=undo_info.x;
+            y=undo_info.y;
+            break;
+    }
+    
+    last_action=ACTION_UNDO;
 }
 
 void FileContentBuffer:: find_text() {
-    
+    last_action=ACTION_MOVE;
 }

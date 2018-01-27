@@ -11,18 +11,32 @@
 
 using namespace std;
 
-enum UndoType {
+/*enum UndoType {
     UNDO_CLIPBOARD,
     UNDO_SMALL_CLIPBOARD,
     UNDO_CONCAT_LINES,
     UNDO_SPLIT_LINES,
     UNDO_INSERT_WORD,
+};*/
+
+enum ActionType {
+    ACTION_NONE,
+    ACTION_DELETE_LINE,
+    ACTION_BACKSPACE,
+    ACTION_DELETE,
+    ACTION_MOVE,
+    ACTION_CUT,
+    ACTION_COPY,
+    ACTION_PASTE,
+    ACTION_INSERT_CHAR,
+    ACTION_NEW_LINE,
+    ACTION_UNDO,
 };
 
 struct UndoInfo {
     int x;
     int y;
-    UndoType type;
+    ActionType type;
     int index;
 };
 
@@ -35,12 +49,14 @@ class FileContentBuffer {
     int x;
     int y;
     vector<UndoInfo> undo_history;
+    ActionType last_action;
+    vector<string> small_clipboard;
 public:    
     FileContentBuffer(string filename);
     void load();
     void print();
     void save();
-    void delete_line();
+    void delete_line(vector< vector<string> >& clipboard);
     void insert_char(char cursor);
     int get_x();
     int get_y();

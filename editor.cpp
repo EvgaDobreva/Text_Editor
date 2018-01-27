@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
             status << "Down";
             break;
         case 4: // Ctrl+D=4
-            file.delete_line();
+            file.delete_line(clipboard);
             status << "Line deleted";
             break;
         case KEY_BACKSPACE: // backspace
@@ -147,6 +147,10 @@ int main(int argc, char* argv[])
                 file.copy_selection(clipboard);
                 file.remove_selection();
                 status << "Copy";
+                break;
+            case 'z':
+                file.undo(clipboard);
+                status << "Undo";
                 break;
             default:
                 status << "Unknown command: '" << (char) cursor << '\'';
