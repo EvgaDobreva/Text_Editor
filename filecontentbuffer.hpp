@@ -51,6 +51,7 @@ class FileContentBuffer {
     vector<UndoInfo> undo_history;
     ActionType last_action;
     vector<string> small_clipboard;
+    size_t undo_count;
 public:    
     FileContentBuffer(string filename);
     void load();
@@ -80,6 +81,7 @@ public:
     void cut_selection(vector< vector<string> >& clipboard);
     void paste_selection(vector< vector<string> >& clipboard);
     void undo(vector< vector<string> >& clipboard);
+    void redo();
     void find_text();
 };
 

@@ -127,6 +127,9 @@ int main(int argc, char* argv[])
         case 22: // Ctrl+V
             file.paste_selection(clipboard);
             status << "Paste";
+        case 25: // Ctrl+Y
+            file.redo();
+            status << "Redo";
             break;
         case 27: // ESC (alt was pressed along with another key)
             cursor=getch();
