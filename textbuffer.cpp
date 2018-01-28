@@ -1,4 +1,4 @@
-#include "filecontentbuffer.hpp"
+#include "textbuffer.hpp"
 
 #include <iostream>
 #include <ncurses.h>
@@ -18,8 +18,7 @@ class FileException {
 
 };
 
-FileContentBuffer::FileContentBuffer(string filename) {
-    filename_=filename;
+TextBuffer::TextBuffer() {
     selection_x=-1;
     selection_y=-1;
     scroll=0;
@@ -27,15 +26,20 @@ FileContentBuffer::FileContentBuffer(string filename) {
     y=0;
     last_action=ACTION_NONE;
     undo_count=0;
+    last_action_modified=true;
 }
 
-void FileContentBuffer::load() {
-    ifstream file;
-    string line;
-    file.open(filename_.c_str());
+void TextBuffer::init_empty() {
+    string empty="";
+    lines_.push_back(empty);
+}
+
+void TextBuffer::load_file(string filename) {
+    ifstream file(filename.c_str());
     if (!file.is_open()) {
         throw FileException();
     }
+    string line;
     while (!file.eof()) {
         getline(file, line);
         lines_.push_back(line);
@@ -43,7 +47,38 @@ void FileContentBuffer::load() {
     file.close();
 }
 
-void FileContentBuffer::print() {
+void TextBuffer::clear() {
+    lines_.clear();
+}
+
+void TextBuffer::update(int buffer_x, int width, TextBuffer* debug_buffer) {
+    if (debug_buffer) {
+        debug_buffer->clear();
+        for(int i=0; i < small_clipboard.size(); i++) {
+            debug_buffer->insert_line(small_clipboard[i]);
+        }
+        for(int i=0; i < undo_history.size(); i++) {
+            UndoInfo undo_info=undo_history[i];
+            stringstream undo_info_elements;
+            undo_info_elements << "x=" << undo_info.x << " " <<
+                                  "y=" << undo_info.y << " " <<
+                                  "type=" << undo_info.type << " " <<
+                                  "index=" << undo_info.index;
+            debug_buffer->insert_line(undo_info_elements.str());
+        }
+    }
+    
+    if (width > COLS) {
+        width=COLS;
+    }
+
+    if (undo_count > 1 && last_action_modified && last_action != ACTION_UNDO && last_action != ACTION_REDO) {
+        undo_history.erase(undo_history.end() - 2, undo_history.end());
+        undo_count=0;
+    }
+    
+    last_action_modified=false;
+
     if (y < scroll) {
         scroll=y;
     }
@@ -80,18 +115,27 @@ void FileContentBuffer::print() {
 
     for (int i=0; i < lines_count; i++) {
         int row=i+scroll;
-        move(i, 0);
+        move(i, buffer_x);
         
         if (selection_x != -1 && row > begin_y && row <= end_y) {
             int row_length=lines_[row-1].length();
             move (i - 1, row_length);
-            for (int i=row_length; i < COLS; i++) {
+            for (int i=row_length; i < width; i++) {
                 attron(A_REVERSE);
                 printw(" ");
             }
+            move(row, buffer_x);
         }
 
-        for (int col = 0; col < (int) lines_[row].length (); col++) {
+        int line_width;
+        if ((int) lines_[row].length() > width) {
+            line_width=width;
+        }
+        else {
+            line_width=lines_[row].length();
+        }
+
+        for (int col = 0; col < line_width; col++) {
             if (selection_x != -1 &&
             (row > begin_y || (row == begin_y && col >= begin_x)) &&
             (row < end_y || (row == end_y && col <  end_x))) {
@@ -105,11 +149,15 @@ void FileContentBuffer::print() {
     }
     
     refresh();
-    move(y - scroll, x);
+    
 }
 
-void FileContentBuffer::save() {
-    ofstream outfile(filename_.c_str());
+void TextBuffer::activate_buffer(int buffer_x) {
+    move(y - scroll, x + buffer_x);
+}
+
+void TextBuffer::save(string filename) {
+    ofstream outfile(filename.c_str());
     vector<string>::const_iterator iterator=lines_.begin();
     outfile << (*iterator).c_str();
     for (++iterator; iterator != lines_.end(); ++iterator) {
@@ -119,7 +167,11 @@ void FileContentBuffer::save() {
     outfile.close();
 }
 
-void FileContentBuffer::delete_line(vector< vector<string> >& clipboard) {
+void TextBuffer::insert_line(string line) {
+    lines_.push_back(line);
+}
+
+void TextBuffer::delete_line(vector< vector<string> >& clipboard) {
     UndoInfo undo_info;
     undo_info.x=x;
     undo_info.y=y;
@@ -140,9 +192,10 @@ void FileContentBuffer::delete_line(vector< vector<string> >& clipboard) {
     }
     
     last_action=ACTION_DELETE_LINE;
+    last_action_modified=true;
 }
 
-void FileContentBuffer::insert_char(char character) {
+void TextBuffer::insert_char(char character) {
     if (last_action == ACTION_INSERT_CHAR && character != ' ') {
         small_clipboard[small_clipboard.size() - 1] += character;
     }
@@ -162,17 +215,18 @@ void FileContentBuffer::insert_char(char character) {
     lines_[y].insert(x++, 1, character);
     
     last_action=ACTION_INSERT_CHAR;
+    last_action_modified=true;
 }
 
-int FileContentBuffer::get_x() {
+int TextBuffer::get_x() {
     return x;
 }
 
-int FileContentBuffer::get_y() {
+int TextBuffer::get_y() {
     return y;
 }
 
-void FileContentBuffer::key_left() {
+void TextBuffer::key_left() {
     if (x-1 >= 0) {
         x--;
     }
@@ -183,7 +237,7 @@ void FileContentBuffer::key_left() {
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer::key_right() {
+void TextBuffer::key_right() {
     if (x+1 <= (int) lines_[y].length()) {
         x++;
     }
@@ -195,7 +249,7 @@ void FileContentBuffer::key_right() {
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer::key_up() {
+void TextBuffer::key_up() {
     if (y>0) {
         if (x > (int) lines_[y-1].size()) {
             x=(int) lines_[y-1].length();
@@ -209,7 +263,7 @@ void FileContentBuffer::key_up() {
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer::key_down() {
+void TextBuffer::key_down() {
     if (y+1 < (int) lines_.size()) {
         if (x > (int) lines_[y+1].size()) {
             x=(int) lines_[y+1].length();
@@ -223,7 +277,7 @@ void FileContentBuffer::key_down() {
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer::key_backspace() {
+void TextBuffer::key_backspace() {
     if (x == 0 && y > 0) {
         x=lines_[y-1].size();
         lines_[y-1] += lines_[y];
@@ -246,9 +300,10 @@ void FileContentBuffer::key_backspace() {
     }
     
     last_action=ACTION_BACKSPACE;
+    last_action_modified=true;
 }
 
-void FileContentBuffer::key_delete() {
+void TextBuffer::key_delete() {
     if (x < (int) lines_[y].size()) {
         lines_[y].erase(x, 1);
     }
@@ -264,9 +319,10 @@ void FileContentBuffer::key_delete() {
     }
     
     last_action=ACTION_DELETE;
+    last_action_modified=true;
 }
 
-void FileContentBuffer::key_enter() {
+void TextBuffer::key_enter() {
     UndoInfo undo_info;
     undo_info.x=x;
     undo_info.y=y;
@@ -290,9 +346,10 @@ void FileContentBuffer::key_enter() {
     }
     
     last_action=ACTION_NEW_LINE;
+    last_action_modified=true;
 }
 
-void FileContentBuffer::word_forward() {
+void TextBuffer::word_forward() {
     int next_space_index = lines_[y].find(' ', x);
     if (next_space_index >= 0) {
         while(lines_[y][++next_space_index] == ' ');
@@ -309,7 +366,7 @@ void FileContentBuffer::word_forward() {
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer::word_backwards() {
+void TextBuffer::word_backwards() {
     if (x > 0) {
         int next_space_index=lines_[y].rfind(' ', x - 1);
         if (next_space_index >= 0) {
@@ -335,31 +392,31 @@ void FileContentBuffer::word_backwards() {
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer:: line_begin() {
+void TextBuffer:: line_begin() {
     x=0;
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer:: line_end() {
+void TextBuffer:: line_end() {
     x=lines_[y].length();
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer:: file_begin() {
+void TextBuffer:: file_begin() {
     x=0;
     y=0;
     
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer:: file_end() {
+void TextBuffer:: file_end() {
     y=lines_.size()-1;   
     x=lines_[y].length();
     
     last_action=ACTION_MOVE;
 }
 
-void FileContentBuffer:: set_selection() {
+void TextBuffer:: set_selection() {
     if (selection_x == -1) {
         selection_x=x;
         selection_y=y;
@@ -370,19 +427,19 @@ void FileContentBuffer:: set_selection() {
     }
 }
 
-void FileContentBuffer:: move_selection() {
+void TextBuffer:: move_selection() {
     if (selection_x == -1) {
         selection_x=x;
         selection_y=y;
     }
 }
 
-void FileContentBuffer:: remove_selection() {
+void TextBuffer:: remove_selection() {
     selection_x=-1;
     selection_y=-1;
 }
 
-void FileContentBuffer:: copy_selection(vector< vector<string> >& clipboard) {
+void TextBuffer:: copy_selection(vector< vector<string> >& clipboard) {
     if (selection_y == -1 || (selection_y == y && selection_x == x)) {
         return;
     }
@@ -420,7 +477,7 @@ void FileContentBuffer:: copy_selection(vector< vector<string> >& clipboard) {
     last_action=ACTION_COPY;
 }
 
-void FileContentBuffer:: cut_selection(vector< vector<string> >& clipboard) {
+void TextBuffer:: cut_selection(vector< vector<string> >& clipboard) {
     if (selection_y == -1 || (selection_y == y && selection_x == x)) {
         return;
     }
@@ -472,9 +529,10 @@ void FileContentBuffer:: cut_selection(vector< vector<string> >& clipboard) {
     y=selection_y;
     
     last_action=ACTION_CUT;
+    last_action_modified=true;
 }
 
-void FileContentBuffer:: paste_selection(vector< vector<string> >& clipboard) {
+void TextBuffer:: paste_selection(vector< vector<string> >& clipboard) {
     if (clipboard.size() == 0) {
         return;
     }
@@ -492,9 +550,10 @@ void FileContentBuffer:: paste_selection(vector< vector<string> >& clipboard) {
     lines_[y] += text_after_x;
     
     last_action=ACTION_PASTE;
+    last_action_modified=true;
 }
 
-void FileContentBuffer:: undo(vector< vector<string> >& clipboard) {
+void TextBuffer:: undo(vector< vector<string> >& clipboard) {
     if (undo_history.size() <= undo_count) {
         return;
     }
@@ -511,9 +570,10 @@ void FileContentBuffer:: undo(vector< vector<string> >& clipboard) {
     }
     
     last_action=ACTION_UNDO;
+    last_action_modified=true;
 }
 
-void FileContentBuffer:: redo() {
+void TextBuffer:: redo() {
     if (undo_count == 0) {
         return;
     }
@@ -528,8 +588,11 @@ void FileContentBuffer:: redo() {
             y=undo_info.y;
             break;
     }
+    
+    last_action=ACTION_REDO;
+    last_action_modified=true;
 }
 
-void FileContentBuffer:: find_text() {
+void TextBuffer:: find_text() {
     last_action=ACTION_MOVE;
 }

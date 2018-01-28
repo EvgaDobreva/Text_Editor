@@ -1,5 +1,5 @@
-editor: editor.cpp filecontentbuffer.o
-	g++ -Wall -o $@ $< filecontentbuffer.o -lncurses
+editor: editor.cpp textbuffer.o
+	g++ -Wall -o $@ $^ -lncurses
 	
-filecontentbuffer.o: filecontentbuffer.cpp filecontentbuffer.hpp
+textbuffer.o: textbuffer.cpp textbuffer.hpp
 	g++ -Wall -c $<

@@ -1,5 +1,5 @@
-#ifndef filecontentbuffer_h
-#define fielcontentbuffer_h
+#ifndef textbuffer_h
+#define textbuffer_h
 
 #include <iostream>
 #include <ncurses.h>
@@ -31,6 +31,7 @@ enum ActionType {
     ACTION_INSERT_CHAR,
     ACTION_NEW_LINE,
     ACTION_UNDO,
+    ACTION_REDO,
 };
 
 struct UndoInfo {
@@ -40,8 +41,7 @@ struct UndoInfo {
     int index;
 };
 
-class FileContentBuffer {
-    string filename_;
+class TextBuffer {
     vector<string> lines_;
     int selection_x;
     int selection_y;
@@ -52,11 +52,16 @@ class FileContentBuffer {
     ActionType last_action;
     vector<string> small_clipboard;
     size_t undo_count;
+    bool last_action_modified;
 public:    
-    FileContentBuffer(string filename);
-    void load();
-    void print();
-    void save();
+    TextBuffer();
+    void init_empty();
+    void load_file(string filename);
+    void clear();
+    void update(int buffer_x, int width, TextBuffer* debug_buffer=NULL);
+    void activate_buffer(int buffer_x);
+    void save(string filename);
+    void insert_line(string line);
     void delete_line(vector< vector<string> >& clipboard);
     void insert_char(char cursor);
     int get_x();
