@@ -37,21 +37,22 @@ int main(int argc, char* argv[])
     options.c_iflag &= ~(IXON|IXOFF);
     tcsetattr(2, TCSAFLUSH, &options);
 
-    int file_buffer_x=5;
+    int file_buffer_x=0;
     int file_buffer_width=50;
-    
+
     int debug_buffer_x=file_buffer_width+file_buffer_x;
-    int debug_buffer_width=80-debug_buffer_x;    
-    
+    int debug_buffer_width=0;
+
+    vector< vector<string> > clipboard;
+
     TextBuffer debug_buffer;
     debug_buffer.init_empty();
 
     TextBuffer file_buffer;
     file_buffer.load_file(filename);
-    file_buffer.update(file_buffer_x, file_buffer_width, &debug_buffer);
-    debug_buffer.update(debug_buffer_x, debug_buffer_width);
+    file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer);
+    debug_buffer.update(debug_buffer_x, debug_buffer_width, clipboard);
 
-    vector< vector<string> > clipboard;
 
     while (1) {
         file_buffer.activate_buffer(file_buffer_x);
@@ -60,7 +61,7 @@ int main(int argc, char* argv[])
             break;
         }
         ostringstream status;
-        switch(character) {        
+        switch(character) {
         case KEY_LEFT: // left
             file_buffer.key_left();
             file_buffer.remove_selection();
@@ -138,6 +139,7 @@ int main(int argc, char* argv[])
         case 22: // Ctrl+V
             file_buffer.paste_selection(clipboard);
             status << "Paste";
+            break;
         case 25: // Ctrl+Y
             file_buffer.redo();
             status << "Redo";
@@ -185,7 +187,7 @@ int main(int argc, char* argv[])
                 status << '\'';
             }
         }
-        
+
         clear();
         move(LINES-1, 0);
         attron(A_REVERSE);
@@ -196,16 +198,21 @@ int main(int argc, char* argv[])
         move(LINES-1, COLS - strlen(filename) - 1);
         printw("%s ", filename);
         attroff(A_REVERSE);
-        
-        file_buffer.update(file_buffer_x, file_buffer_width, &debug_buffer);
-        debug_buffer.update(debug_buffer_x, debug_buffer_width);
+
+        file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer);
+        debug_buffer.update(debug_buffer_x, debug_buffer_width, clipboard);
     }
     endwin();
     return 0;
 }
 /*
     TODO:
+    Да се оправи обратното изрязване (отдясно наляво)
+    Merge_line и Split_line да се изнесат във функция
+    Да се оправи undo за cut
+    Да се направи undo за paste
+    
     1. оцветяване на ключови думи в с++
-    2. търсене и замяна на текст    
+    2. търсене и замяна на текст
     ! Документ - описване на увода и първата част
 */

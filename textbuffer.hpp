@@ -11,14 +11,6 @@
 
 using namespace std;
 
-/*enum UndoType {
-    UNDO_CLIPBOARD,
-    UNDO_SMALL_CLIPBOARD,
-    UNDO_CONCAT_LINES,
-    UNDO_SPLIT_LINES,
-    UNDO_INSERT_WORD,
-};*/
-
 enum ActionType {
     ACTION_NONE,
     ACTION_DELETE_LINE,
@@ -29,7 +21,8 @@ enum ActionType {
     ACTION_COPY,
     ACTION_PASTE,
     ACTION_INSERT_CHAR,
-    ACTION_NEW_LINE,
+    ACTION_SPLIT_LINE,
+    ACTION_MERGE_LINE,
     ACTION_UNDO,
     ACTION_REDO,
 };
@@ -39,6 +32,7 @@ struct UndoInfo {
     int y;
     ActionType type;
     int index;
+    string data;
 };
 
 class TextBuffer {
@@ -50,15 +44,14 @@ class TextBuffer {
     int y;
     vector<UndoInfo> undo_history;
     ActionType last_action;
-    vector<string> small_clipboard;
     size_t undo_count;
     bool last_action_modified;
-public:    
+public:
     TextBuffer();
     void init_empty();
     void load_file(string filename);
     void clear();
-    void update(int buffer_x, int width, TextBuffer* debug_buffer=NULL);
+    void update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer=NULL);
     void activate_buffer(int buffer_x);
     void save(string filename);
     void insert_line(string line);
@@ -84,7 +77,7 @@ public:
     void remove_selection();
     void copy_selection(vector< vector<string> >& clipboard);
     void cut_selection(vector< vector<string> >& clipboard);
-    void paste_selection(vector< vector<string> >& clipboard);
+    void paste_selection(vector< vector<string> >& clipboard, size_t index=0);
     void undo(vector< vector<string> >& clipboard);
     void redo();
     void find_text();
