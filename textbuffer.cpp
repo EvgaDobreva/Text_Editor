@@ -68,11 +68,13 @@ void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipbo
         
         for(size_t i=0; i < clipboard.size(); i++) {
             stringstream line;
-            line << i << ": ";
-            for(size_t j=0; j < clipboard[i].size(); j++) {
-                line << "  \"" << clipboard[i][j] << '"' << endl;
-            }
+            line << i << ": " << endl;
             debug_buffer->insert_line(line.str());
+            for(size_t j=0; j < clipboard[i].size(); j++) {
+                stringstream line;
+                line << "  \"" << clipboard[i][j] << '"' << endl;
+                debug_buffer->insert_line(line.str());
+            }
         }
 
         debug_buffer->insert_line("undo_history:");
@@ -584,32 +586,47 @@ void TextBuffer:: cut_selection(vector< vector<string> >& clipboard) {
 
     clipboard.push_back(copied);
 
-    x=selection_x;
-    y=selection_y;
+    x=begin_x;
+    y=begin_y;
 
     last_action=ACTION_CUT;
     last_action_modified=true;
 }
 
-void TextBuffer:: paste_selection(vector< vector<string> >& clipboard, size_t index) {
+void TextBuffer:: paste_selection(vector< vector<string> >& clipboard, int index) {
     if (clipboard.size() == 0) {
         return;
     }
-    vector<string> pasted=clipboard[clipboard.size() - 1 - index];
+
+    if (index < 0) {
+        index=clipboard.size() - 1;
+    }
+
+    UndoInfo undo_info;
+    undo_info.x=x;
+    undo_info.y=y;
+    undo_info.type=ACTION_PASTE;
+    undo_info.index=index;
+    undo_history.push_back(undo_info);
+
+    insert_lines(clipboard[index]);
+    
+    last_action=ACTION_PASTE;
+    last_action_modified=true;
+}
+
+void TextBuffer::insert_lines(vector<string> new_lines) {
     string text_after_x=lines_[y].substr(x);
     lines_[y].erase(x);
-    lines_[y] += pasted[0];
+    lines_[y] += new_lines[0];
     y++;
-    for (size_t i=1; i < pasted.size(); i++) {
-        lines_.insert(lines_.begin()+y, pasted[i]);
+    for (size_t i=1; i < new_lines.size(); i++) {
+        lines_.insert(lines_.begin()+y, new_lines[i]);
         y++;
     }
     y--;
     x=lines_[y].length();
     lines_[y] += text_after_x;
-
-    last_action=ACTION_PASTE;
-    last_action_modified=true;
 }
 
 void TextBuffer::undo(vector< vector<string> >& clipboard) {
@@ -640,7 +657,15 @@ void TextBuffer::undo(vector< vector<string> >& clipboard) {
             paste_selection(clipboard, undo_info.index);
             break;
         case ACTION_COPY:
-        case ACTION_PASTE:
+        case ACTION_PASTE: {
+            vector<string> pasted=clipboard[undo_info.index];
+            lines_[undo_info.y].erase(undo_info.x, pasted[0].size());
+            lines_[undo_info.y] += lines_[undo_info.y + pasted.size() - 1].substr(pasted.back().size());
+            lines_.erase(lines_.begin() + undo_info.y + 1, lines_.begin() + undo_info.y + pasted.size() - 1);
+            x=undo_info.x;
+            y=undo_info.y;
+            }
+            break;
         case ACTION_SPLIT_LINE:
             lines_[undo_info.y] += lines_[undo_info.y+1];
             lines_.erase(lines_.begin() + undo_info.y+1);
@@ -662,7 +687,7 @@ void TextBuffer::undo(vector< vector<string> >& clipboard) {
     last_action_modified=true;
 }
 
-void TextBuffer:: redo() {
+void TextBuffer:: redo(vector< vector<string> >& clipboard) {
     if (undo_count == 0) {
         return;
     }
@@ -685,9 +710,13 @@ void TextBuffer:: redo() {
         case ACTION_DELETE_LINE:
         case ACTION_MOVE:
         case ACTION_CUT:
-            
+            break;
         case ACTION_COPY:
         case ACTION_PASTE:
+            x=undo_info.x;
+            y=undo_info.y;
+            paste_selection(clipboard, undo_info.index);
+            break;
         case ACTION_SPLIT_LINE:
             lines_.insert(lines_.begin() + undo_info.y + 1, lines_[undo_info.y].substr(undo_info.x));
             lines_[undo_info.y].erase(undo_info.x);

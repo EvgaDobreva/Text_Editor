@@ -141,7 +141,7 @@ int main(int argc, char* argv[])
             status << "Paste";
             break;
         case 25: // Ctrl+Y
-            file_buffer.redo();
+            file_buffer.redo(clipboard);
             status << "Redo";
             break;
         case 27: // ESC (alt was pressed along with another key)
@@ -207,10 +207,12 @@ int main(int argc, char* argv[])
 }
 /*
     TODO:
-    Да се оправи обратното изрязване (отдясно наляво)
+    Да се оправи изрязването
     Merge_line и Split_line да се изнесат във функция
     Да се оправи undo за cut
     Да се направи undo за paste
+    lines_[undo_info.y].erase(undo_info.x, undo_info.x + clipboard[undo_info.index].size()); - защо работи така
+    
     
     1. оцветяване на ключови думи в с++
     2. търсене и замяна на текст

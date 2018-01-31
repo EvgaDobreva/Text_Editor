@@ -77,9 +77,10 @@ public:
     void remove_selection();
     void copy_selection(vector< vector<string> >& clipboard);
     void cut_selection(vector< vector<string> >& clipboard);
-    void paste_selection(vector< vector<string> >& clipboard, size_t index=0);
+    void paste_selection(vector< vector<string> >& clipboard, int index=-1);
+    void insert_lines(vector<string> new_lines);
     void undo(vector< vector<string> >& clipboard);
-    void redo();
+    void redo(vector< vector<string> >& clipboard);
     void find_text();
 };
 
