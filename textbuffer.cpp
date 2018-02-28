@@ -3,16 +3,20 @@
 #include <iostream>
 #include <ncurses.h>
 #include <fstream>
-#include <sstream>
-#include <list>
 #include <vector>
 #include <iterator>
 #include <string>
-#include <stdexcept>
+#include <sstream>
 #include <termios.h>
 #include <string.h>
 
 using namespace std;
+
+const char* DATA_TYPES[]={"auto", "bool", "char", "char16_t", "char32_t", "const", "double", "explicit", "export", "extern", "float", "inline", "int", "long", "mutable", "register", "short", "signed", "static", "unsigned", "void", "volatile", "wchar_t"};
+size_t DATA_TYPES_LEN=23;
+
+const char* KEYWORDS[]={"alignas", "alignof", "and", "and_eq", "asm", "bitand", "bitor", "break", "case", "catch", "class", "compl", "constexpr", "const_cast", "continue", "decltype", "default", "delete", "do", "dynamic_cast", "else", "enum", "false", "for", "friend", "goto", "if", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private", "protected", "public", "reinterpret_cast", "return", "sizeof", "static_assert", "static_cast", "struct", "switch", "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union", "using", "virtual", "while", "xor", "xor_eq", "override", "final"};
+size_t KEYWORDS_LEN=63;
 
 class FileException {
 
@@ -27,11 +31,6 @@ TextBuffer::TextBuffer() {
     last_action=ACTION_NONE;
     undo_count=0;
     last_action_modified=false;
-}
-
-void TextBuffer::init_empty() {
-    string empty="";
-    lines_.push_back(empty);
 }
 
 void TextBuffer::load_file(string filename) {
@@ -51,7 +50,10 @@ void TextBuffer::clear() {
     lines_.clear();
 }
 
-void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer) {
+void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer, bool find_text) {
+    use_default_colors();
+    start_color();
+
     if (undo_count > 0 && last_action_modified && last_action != ACTION_UNDO && last_action != ACTION_REDO) {
         undo_history.erase(undo_history.end() - undo_count - 1, undo_history.end() - 1);
         undo_count=0;
@@ -60,12 +62,12 @@ void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipbo
     if (debug_buffer) {
         debug_buffer->clear();
 
-        string line = "last_action_modified: ";
+        string line = "|last_action_modified: ";
         line += last_action_modified ? "true" : "false";
         debug_buffer->insert_line(line);
 
-        debug_buffer->insert_line("clipboard:");
-        
+        debug_buffer->insert_line("|clipboard:");
+
         for(size_t i=0; i < clipboard.size(); i++) {
             stringstream line;
             line << i << ": " << endl;
@@ -77,7 +79,7 @@ void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipbo
             }
         }
 
-        debug_buffer->insert_line("undo_history:");
+        debug_buffer->insert_line("|undo_history:");
         for(size_t i=0; i < undo_history.size(); i++) {
             UndoInfo undo_info=undo_history[i];
             stringstream line;
@@ -107,7 +109,6 @@ void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipbo
         scroll=y-LINES+2;
     }
 
-    vector<string>::const_iterator iterator;
     int lines_count;
 
     if (lines_.size() - scroll < (size_t) LINES - 1) {
@@ -120,57 +121,212 @@ void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipbo
     int begin_y, begin_x, end_y, end_x;
 
     if (selection_y > y || (selection_y == y && selection_x > x)) {
-        // selection is bigger than cursor
         begin_y=y;
         begin_x=x;
         end_y=selection_y;
         end_x=selection_x;
     }
     else {
-        // cursor is bigger than selection
         begin_y=selection_y;
         begin_x=selection_x;
         end_y=y;
         end_x=x;
     }
 
-    for (int i=0; i < lines_count; i++) {
-        int row=i+scroll;
-        move(i, buffer_x);
+    for (int line_index=0; line_index < lines_count; line_index++) {
+        int row=line_index+scroll;
+        move(line_index, buffer_x);
 
         if (selection_x != -1 && row > begin_y && row <= end_y) {
             int row_length=lines_[row-1].length();
-            move (i - 1, row_length);
+            move (line_index - 1, row_length);
+            attron(A_REVERSE);
             for (int i=row_length; i < width; i++) {
-                attron(A_REVERSE);
                 printw(" ");
             }
             move(row, buffer_x);
+            attroff(A_REVERSE);
         }
 
-        int line_width;
-        if ((int) lines_[row].length() > width) {
-            line_width=width;
-        }
-        else {
-            line_width=lines_[row].length();
-        }
+        string line = lines_[row];
+        int line_width = (int) line.length() > width ? width : line.length();
 
-        for (int col = 0; col < line_width; col++) {
-            if (selection_x != -1 &&
-            (row > begin_y || (row == begin_y && col >= begin_x)) &&
-            (row < end_y || (row == end_y && col <  end_x))) {
-                attron (A_REVERSE);
+        for (int col = 0; col < line_width;) {
+            char c=line[col];
+            string word;
+            int word_color = 0;
+            if (c == '"') {
+                size_t end;
+                for (end=col+1; end < (size_t) line_width; end++) {
+                    if (line[end] == '"' && line[end-1] != '\\') {
+                        break;
+                    }
+                }
+                word_color=4;
+                word = line.substr(col, end-col+1);
+            }
+            else if (c == '\'') {
+                size_t end;
+                for (end=col+1; end < (size_t) line_width; end++) {
+                    if (line[end] == '\'' && line[end-1] != '\\') {
+                        break;
+                    }
+                }
+                word_color=4;
+                word = line.substr(col, end-col+1);
+            }
+            else if (c == '/' && col + 1 != (int) line.length() && line[col+1] == '/') {
+                word_color=5;
+                word = line.substr(col, line_width-col);
+            }
+            else if (c == '/' && col + 1 != (int) line.length() && line[col+1] == '*') {
+                size_t end;
+                for (end=col+2; end < (size_t) line_width - 1; end++) {
+                    if (line[end] == '*' && line[end+1] == '/') {
+                        break;
+                    }
+                }
+                word_color=5;
+                word = line.substr(col, end-col+2);
+            }
+            else if (c >= '0' && c <= '9')
+              {
+                size_t end;
+                for (end=col+1; end < (size_t) line_width; end++) {
+                    c=line[end];
+                    if ((c < '0' || c > '9') && c != '.') {
+                        break;
+                    }
+                }
+                word_color=3;
+                word=line.substr(col, end-col);
+              }
+            else if (c >= 'a' && c <= 'z') {
+                size_t end;
+                for (end=col+1; end < (size_t) line.length(); end++) {
+                    c=line[end];
+                    if ((c < 'a' || c > 'z') &&
+                        (c < '0' || c > '9') && c != '_') {
+                        break;
+                    }
+                }
+
+                word=line.substr(col, end-col);
+
+                bool is_keyword=false;
+                for (size_t i=0; i < DATA_TYPES_LEN; i++) {
+                    if (word == DATA_TYPES[i]) {
+                        is_keyword=true;
+                        word_color=1;
+                        break;
+                    }
+                }
+                if(!is_keyword) {
+                    for (size_t i=0; i < KEYWORDS_LEN; i++) {
+                        if (word == KEYWORDS[i]) {
+                            is_keyword=true;
+                            word_color=2;
+                            break;
+                        }
+                    }
+                }
+
+                if (col + word.length() > (size_t) line_width) {
+                    word = word.substr(0, line_width - col);
+                }
             }
             else {
-                attroff (A_REVERSE);
+                word+=c;
             }
-            printw("%c", lines_[row][col]);
+
+            attron(COLOR_PAIR(word_color));
+            if (selection_x != -1) {
+                if (row > begin_y && row < end_y) {
+                    attron (A_REVERSE);
+                    printw("%s", word.c_str());
+                    attroff (A_REVERSE);
+                }
+                else if (row == begin_y && row == end_y) {
+                    int end = col + word.length();
+                    if (col >= end_x || end <= begin_x) {
+                        printw("%s", word.c_str());
+                    }
+                    else if (col < begin_x && end > end_x) {
+                        size_t left_split = begin_x - col;
+                        size_t right_split = end_x - col;
+                        printw("%s", word.substr(0, left_split).c_str());
+                        attron (A_REVERSE);
+                        printw("%s", word.substr(left_split, right_split - left_split).c_str());
+                        attroff (A_REVERSE);
+                        printw("%s", word.substr(right_split).c_str());
+                    }
+                    else if (col < begin_x) {
+                        size_t split = begin_x - col;
+                        printw("%s", word.substr(0, split).c_str());
+                        attron (A_REVERSE);
+                        printw("%s", word.substr(split).c_str());
+                        attroff (A_REVERSE);
+                    }
+                    else if (end > end_x) {
+                        size_t split = end_x - col;
+                        attron (A_REVERSE);
+                        printw("%s", word.substr(0, split).c_str());
+                        attroff (A_REVERSE);
+                        printw("%s", word.substr(split).c_str());
+                    }
+                    else {
+                        attron (A_REVERSE);
+                        printw("%s", word.c_str());
+                        attroff (A_REVERSE);
+                    }
+                }
+                else if (row == begin_y) {
+                    if ((int) (col + word.length()) <= begin_x) {
+                        printw("%s", word.c_str());
+                    }
+                    else if (col >= begin_x) {
+                        attron (A_REVERSE);
+                        printw("%s", word.c_str());
+                        attroff (A_REVERSE);
+                    }
+                    else {
+                        size_t split = begin_x - col;
+                        printw("%s", word.substr(0, split).c_str());
+                        attron (A_REVERSE);
+                        printw("%s", word.substr(split).c_str());
+                        attroff (A_REVERSE);
+                    }
+                }
+                else if (row == end_y) {
+                    if (col >= end_x) {
+                        printw("%s", word.c_str());
+                    }
+                    else if ((int) (col + word.length()) <= end_x) {
+                        attron (A_REVERSE);
+                        printw("%s", word.c_str());
+                        attroff (A_REVERSE);
+                    }
+                    else {
+                        size_t split = end_x - col;
+                        attron (A_REVERSE);
+                        printw("%s", word.substr(0, split).c_str());
+                        attroff (A_REVERSE);
+                        printw("%s", word.substr(split).c_str());
+                    }
+                }
+                else {
+                    printw("%s", word.c_str());
+                }
+            }
+            else {
+                printw("%s", word.c_str());
+            }
+            attroff(COLOR_PAIR(word_color));
+
+            col+=word.length();
         }
     }
-
     refresh();
-
 }
 
 void TextBuffer::activate_buffer(int buffer_x) {
@@ -215,8 +371,6 @@ void TextBuffer::delete_line(vector< vector<string> >& clipboard) {
     last_action=ACTION_DELETE_LINE;
     last_action_modified=true;
 }
-
-// "   "
 
 void TextBuffer::insert_char(char character) {
     if (last_action == ACTION_INSERT_CHAR) {
@@ -326,8 +480,8 @@ void TextBuffer::key_backspace() {
     }
     else {
         x--;
-        
-        if (last_action == ACTION_BACKSPACE && 
+
+        if (last_action == ACTION_BACKSPACE &&
             ((lines_[y][x] != ' ' && undo_history.back().data[0] != ' ') ||
              (lines_[y][x] == ' ' && undo_history.back().data[0] == ' '))) {
             undo_history.back().data.insert(undo_history.back().data.begin(), lines_[y][x]);
@@ -364,7 +518,7 @@ void TextBuffer::key_delete() {
             undo_info.data=lines_[y][x];
             undo_history.push_back(undo_info);
         }
-        
+
         lines_[y].erase(x, 1);
     }
     else if (y < (int) lines_.size() - 1) {
@@ -507,14 +661,12 @@ void TextBuffer:: copy_selection(vector< vector<string> >& clipboard) {
 
     int begin_y, begin_x, end_y, end_x;
     if (selection_y > y || (selection_y == y && selection_x > x)) {
-        // selection is bigger than cursor
         begin_y=y;
         begin_x=x;
         end_y=selection_y;
         end_x=selection_x;
     }
     else {
-        // cursor is bigger than selection
         begin_y=selection_y;
         begin_x=selection_x;
         end_y=y;
@@ -545,14 +697,12 @@ void TextBuffer:: cut_selection(vector< vector<string> >& clipboard) {
 
     int begin_y, begin_x, end_y, end_x;
     if (selection_y > y || (selection_y == y && selection_x > x)) {
-        // selection is bigger than cursor
         begin_y=y;
         begin_x=x;
         end_y=selection_y;
         end_x=selection_x;
     }
     else {
-        // cursor is bigger than selection
         begin_y=selection_y;
         begin_x=selection_x;
         end_y=y;
@@ -610,7 +760,7 @@ void TextBuffer:: paste_selection(vector< vector<string> >& clipboard, int index
     undo_history.push_back(undo_info);
 
     insert_lines(clipboard[index]);
-    
+
     last_action=ACTION_PASTE;
     last_action_modified=true;
 }
@@ -708,7 +858,9 @@ void TextBuffer:: redo(vector< vector<string> >& clipboard) {
             y=undo_info.y;
             break;
         case ACTION_DELETE_LINE:
+            break;
         case ACTION_MOVE:
+            break;
         case ACTION_CUT:
             break;
         case ACTION_COPY:
@@ -738,6 +890,19 @@ void TextBuffer:: redo(vector< vector<string> >& clipboard) {
     last_action_modified=true;
 }
 
-void TextBuffer:: find_text() {
+void TextBuffer::init_empty() {
+    string empty="";
+    lines_.push_back(empty);
+}
+
+void TextBuffer::find_text() {
+
+
+
+    string needle;
+
+
+
     last_action=ACTION_MOVE;
+
 }

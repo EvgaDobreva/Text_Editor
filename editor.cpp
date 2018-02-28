@@ -2,11 +2,8 @@
 #include <ncurses.h>
 #include <fstream>
 #include <sstream>
-#include <list>
 #include <vector>
-#include <iterator>
 #include <string>
-#include <stdexcept>
 #include <termios.h>
 #include <string.h>
 
@@ -28,9 +25,13 @@ int main(int argc, char* argv[])
     keypad(stdscr, TRUE);
     noecho();
 
-    //start_color();
-    //init_pair(1, COLOR_GREEN, COLOR_BLACK);
-    //attron(COLOR_PAIR(1));
+    use_default_colors();
+    start_color();
+    init_pair(1, COLOR_GREEN, -1); // data_types
+    init_pair(2, COLOR_RED, -1); // keywords
+    init_pair(3, COLOR_BLUE, -1); // numbers
+    init_pair(4, COLOR_YELLOW, -1); // strings
+    init_pair(5, COLOR_MAGENTA, -1); // comments
 
     struct termios options;
     tcgetattr(2, &options);
@@ -38,21 +39,21 @@ int main(int argc, char* argv[])
     tcsetattr(2, TCSAFLUSH, &options);
 
     int file_buffer_x=0;
-    int file_buffer_width=50;
+    int file_buffer_width=60;
 
     int debug_buffer_x=file_buffer_width+file_buffer_x;
     int debug_buffer_width=0;
 
-    vector< vector<string> > clipboard;
-
     TextBuffer debug_buffer;
     debug_buffer.init_empty();
 
+    vector< vector<string> > clipboard;
+    bool find_text=false;
+
     TextBuffer file_buffer;
     file_buffer.load_file(filename);
-    file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer);
+    file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer, find_text);
     debug_buffer.update(debug_buffer_x, debug_buffer_width, clipboard);
-
 
     while (1) {
         file_buffer.activate_buffer(file_buffer_x);
@@ -62,6 +63,10 @@ int main(int argc, char* argv[])
         }
         ostringstream status;
         switch(character) {
+        case 19: // ctrl+s
+            file_buffer.save(filename);
+            status << "File Saved";
+            break;
         case KEY_LEFT: // left
             file_buffer.key_left();
             file_buffer.remove_selection();
@@ -80,74 +85,61 @@ int main(int argc, char* argv[])
             file_buffer.key_down();
             status << "Down";
             break;
-        case 4: // Ctrl+D=4
-            file_buffer.delete_line(clipboard);
-            status << "Line deleted";
+        case '\0':
+            file_buffer.set_selection();
+            status << "Set Selection";
+            break;
+        case KEY_SLEFT: // shift+left
+            file_buffer.move_selection();
+            file_buffer.key_left();
+            status << "Selecting (Left)";
+            break;
+        case KEY_SRIGHT: // shift+right
+            file_buffer.move_selection();
+            file_buffer.key_right();
+            status << "Selecting (Right)";
+            break;
+        case 23: // ctrl+w
+            file_buffer.word_forward();
+            status << "Move forward by word";
+            break;
+        case 2: // ctrl+b
+            file_buffer.line_begin();
+            status << "Beginning of the line";
+            break;
+        case 5: // ctrl+e
+            file_buffer.line_end();
+            status << "End of the line";
             break;
         case KEY_BACKSPACE: // backspace
         case 127:
             file_buffer.key_backspace();
-            status << "Deleting using Backspace";
+            status << "Deleting (Backspace)";
             break;
         case KEY_DC: // delete
             file_buffer.key_delete();
-            status << "Deleting using Delete";
+            status << "Deleting (Delete)";
             break;
-        case '\n':
+        case 4: // ctrl+d
+            file_buffer.delete_line(clipboard);
+            status << "Line Deleted";
+            break;
+        case '\n': // enter
             file_buffer.key_enter();
-            status << "New line using Enter";
+            status << "New line (Enter)";
             break;
-        case 19: // Ctrl+S
-            file_buffer.save(filename);
-            status << "File Saved";
-            break;
-        case 2: // Ctrl+B
-            file_buffer.word_backwards();
-            status << "Moved backwards by word";
-            break;
-        case 1: // Ctrl+A
-            file_buffer.line_begin();
-            status << "Beginning of the line";
-            break;
-        case 5: // Ctrl+E
-            file_buffer.line_end();
-            status << "End of the line";
-            break;
-        case '\0':
-            file_buffer.set_selection();
-            status << "Set selection";
-            break;
-        case KEY_SLEFT:
-            file_buffer.move_selection();
-            file_buffer.key_left();
-            status << "Moving selection using left";
-            break;
-        case KEY_SRIGHT:
-            file_buffer.move_selection();
-            file_buffer.key_right();
-            status << "Moving selection using right";
-            break;
-        case 6: // Ctrl+F
+        case 6: // ctrl+f
             file_buffer.find_text();
             status << "Find text";
-            break;
-        case 23: // Ctrl+W
-            file_buffer.cut_selection(clipboard);
-            file_buffer.remove_selection();
-            status << "Cut";
-            break;
-        case 22: // Ctrl+V
-            file_buffer.paste_selection(clipboard);
-            status << "Paste";
-            break;
-        case 25: // Ctrl+Y
-            file_buffer.redo(clipboard);
-            status << "Redo";
             break;
         case 27: // ESC (alt was pressed along with another key)
             character=getch();
             switch(character) {
-            case 'a': // alt+a
+            case 'w':
+                file_buffer.word_backwards();
+                status << "Move backwards by word";
+                break;
+            case 'b': // alt+b
                 file_buffer.file_begin();
                 status << "Beginning of the file";
                 break;
@@ -155,18 +147,27 @@ int main(int argc, char* argv[])
                 file_buffer.file_end();
                 status << "End of file";
                 break;
-            case 'f': // alt+f
-                file_buffer.word_forward();
-                status << "Moved forward by word";
-                break;
-            case 'w': // alt+w
+            case 'c': // alt+c
                 file_buffer.copy_selection(clipboard);
                 file_buffer.remove_selection();
                 status << "Copy";
                 break;
-            case 'z':
+            case 'x': // alt+x
+                file_buffer.cut_selection(clipboard);
+                file_buffer.remove_selection();
+                status << "Cut";
+                break;
+            case 'v': // alt+v
+                file_buffer.paste_selection(clipboard);
+                status << "Paste";
+                break;
+            case 'z': // alt+z
                 file_buffer.undo(clipboard);
                 status << "Undo";
+                break;
+            case 'y': // alt+y
+                file_buffer.redo(clipboard);
+                status << "Redo";
                 break;
             default:
                 status << "Unknown command: '" << (char) character << '\'';
@@ -191,6 +192,7 @@ int main(int argc, char* argv[])
         clear();
         move(LINES-1, 0);
         attron(A_REVERSE);
+        
         printw("Ln:%d, Col:%d Copied:%d  %s ", file_buffer.get_y()+1, file_buffer.get_x()+1, clipboard.size(), status.str().c_str());
         for(int i=0; i < COLS;i++) {
             printw(" ");
@@ -199,22 +201,9 @@ int main(int argc, char* argv[])
         printw("%s ", filename);
         attroff(A_REVERSE);
 
-        file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer);
+        file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer, find_text);
         debug_buffer.update(debug_buffer_x, debug_buffer_width, clipboard);
     }
     endwin();
     return 0;
 }
-/*
-    TODO:
-    Да се оправи изрязването
-    Merge_line и Split_line да се изнесат във функция
-    Да се оправи undo за cut
-    Да се направи undo за paste
-    lines_[undo_info.y].erase(undo_info.x, undo_info.x + clipboard[undo_info.index].size()); - защо работи така
-    
-    
-    1. оцветяване на ключови думи в с++
-    2. търсене и замяна на текст
-    ! Документ - описване на увода и първата част
-*/

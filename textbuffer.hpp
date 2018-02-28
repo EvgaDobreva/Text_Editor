@@ -4,7 +4,6 @@
 #include <iostream>
 #include <ncurses.h>
 #include <fstream>
-#include <sstream>
 #include <vector>
 #include <string>
 #include <string.h>
@@ -48,10 +47,9 @@ class TextBuffer {
     bool last_action_modified;
 public:
     TextBuffer();
-    void init_empty();
     void load_file(string filename);
     void clear();
-    void update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer=NULL);
+    void update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer=NULL, bool find_text=false);
     void activate_buffer(int buffer_x);
     void save(string filename);
     void insert_line(string line);
@@ -81,6 +79,7 @@ public:
     void insert_lines(vector<string> new_lines);
     void undo(vector< vector<string> >& clipboard);
     void redo(vector< vector<string> >& clipboard);
+    void init_empty();
     void find_text();
 };
 
