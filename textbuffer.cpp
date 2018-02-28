@@ -14,7 +14,6 @@ using namespace std;
 
 const char* DATA_TYPES[]={"auto", "bool", "char", "char16_t", "char32_t", "const", "double", "explicit", "export", "extern", "float", "inline", "int", "long", "mutable", "register", "short", "signed", "static", "unsigned", "void", "volatile", "wchar_t"};
 size_t DATA_TYPES_LEN=23;
-
 const char* KEYWORDS[]={"alignas", "alignof", "and", "and_eq", "asm", "bitand", "bitor", "break", "case", "catch", "class", "compl", "constexpr", "const_cast", "continue", "decltype", "default", "delete", "do", "dynamic_cast", "else", "enum", "false", "for", "friend", "goto", "if", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private", "protected", "public", "reinterpret_cast", "return", "sizeof", "static_assert", "static_cast", "struct", "switch", "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union", "using", "virtual", "while", "xor", "xor_eq", "override", "final"};
 size_t KEYWORDS_LEN=63;
 
