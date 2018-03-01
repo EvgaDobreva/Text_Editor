@@ -51,7 +51,7 @@ void set_default_controls(map<string, KeyAction> *controls) {
     (*controls)["^s"] = KEYACTION_SAVE;
     (*controls)["^q"] = KEYACTION_QUIT;
     (*controls)["^d"] = KEYACTION_DELETE_LINE;
-    (*controls)["backspace"] = KEYACTION_BACKSPACE;
+    (*controls)["^backspace"] = KEYACTION_BACKSPACE;
     (*controls)["delete"] = KEYACTION_DELETE;
     (*controls)["enter"] = KEYACTION_NEW_LINE;
     (*controls)["^w"] = KEYACTION_WORD_FORWARD;
