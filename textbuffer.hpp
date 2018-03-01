@@ -24,6 +24,7 @@ enum ActionType {
     ACTION_MERGE_LINE,
     ACTION_UNDO,
     ACTION_REDO,
+    ACTION_REPLACE,
 };
 
 struct UndoInfo {
@@ -81,6 +82,7 @@ public:
     void redo(vector< vector<string> >& clipboard);
     void init_empty();
     bool find_text(string find_What);
+    bool replace(string what, string with);
 };
 
 #endif

@@ -827,6 +827,13 @@ void TextBuffer::undo(vector< vector<string> >& clipboard) {
             x=0;
             y=undo_info.y+1;
             break;
+        case ACTION_REPLACE:
+            lines_[undo_info.y].replace(undo_info.x,
+                                        undo_info.index,
+                                        undo_info.data.substr(undo_info.index));
+            x=undo_info.x;
+            y=undo_info.y;
+            break;
         case ACTION_UNDO:
         case ACTION_REDO:
         case ACTION_NONE: break;
@@ -836,7 +843,7 @@ void TextBuffer::undo(vector< vector<string> >& clipboard) {
     last_action_modified=true;
 }
 
-void TextBuffer:: redo(vector< vector<string> >& clipboard) {
+void TextBuffer::redo(vector< vector<string> >& clipboard) {
     if (undo_count == 0) {
         return;
     }
@@ -880,6 +887,13 @@ void TextBuffer:: redo(vector< vector<string> >& clipboard) {
             x=undo_info.x;
             y=undo_info.y;
             break;
+        case ACTION_REPLACE:
+            lines_[undo_info.y].replace(undo_info.x,
+                                        undo_info.data.length()-undo_info.index,
+                                        undo_info.data.substr(0, undo_info.index));
+            x=undo_info.x;
+            y=undo_info.y;
+            break;
         case ACTION_UNDO:
         case ACTION_REDO:
         case ACTION_NONE: break;
@@ -901,6 +915,7 @@ bool TextBuffer::find_text(string find_what) {
         x=pos+find_what.length();
         selection_x=pos;
         selection_y=y;
+        last_action=ACTION_MOVE;
         return true;
     }
 
@@ -913,10 +928,57 @@ bool TextBuffer::find_text(string find_what) {
             selection_x=pos;
             selection_y=row;
             scroll=row;
+            last_action=ACTION_MOVE;
             return true;
         }
     }
-    last_action=ACTION_MOVE;
+
+    return false;
+}
+
+bool TextBuffer::replace(string what, string with) {
+    string &line=lines_[y];
+    size_t pos=line.find(what, x);
+    if (pos != string::npos) {
+        UndoInfo undo_info;
+        undo_info.x=pos;
+        undo_info.y=y;
+        undo_info.type=ACTION_REPLACE;
+        undo_info.index=with.length();
+        undo_info.data+=with;
+        undo_info.data+=what;
+        undo_history.push_back(undo_info);
+
+        line.replace(pos, what.length(), with);
+        x=pos+with.length();
+        last_action=ACTION_REPLACE;
+        last_action_modified=true;
+
+        return true;
+    }
+
+    for (size_t row=y+1; row < lines_.size(); row++) {
+        string &line=lines_[row];
+        size_t pos=line.find(what);
+        if (pos != string::npos) {
+            UndoInfo undo_info;
+            undo_info.x=pos;
+            undo_info.y=row;
+            undo_info.type=ACTION_REPLACE;
+            undo_info.index=with.length();
+            undo_info.data+=with;
+            undo_info.data+=what;
+            undo_history.push_back(undo_info);
+
+            line.replace(pos, what.length(), with);
+            x=pos+with.length();
+            y=row;
+            scroll=row;
+            last_action=ACTION_REPLACE;
+            last_action_modified=true;
+            return true;
+        }
+    }
 
     return false;
 }

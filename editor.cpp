@@ -188,6 +188,7 @@ int main(int argc, char* argv[])
     debug_buffer.init_empty();
 
     string last_search;
+    string last_replace_what;
     vector< vector<string> > clipboard;
 
     TextBuffer file_buffer;
@@ -355,16 +356,16 @@ int main(int argc, char* argv[])
             status << "Redo";
             break;
         case KEYACTION_FIND: {
-                string find_what = input_line("Find");
+                string find_what=input_line("Find");
                 if (find_what != "") {
-                    last_search = find_what;
+                    last_search=find_what;
                 }
                 else if (last_search != "") {
-                    find_what = last_search;
+                    find_what=last_search;
                 }
 
                 if (find_what != "") {
-                    bool found = file_buffer.find_text(find_what);
+                    bool found=file_buffer.find_text(find_what);
                     if (found) {
                         status << "Found \"" << find_what << '"';
                     }
@@ -375,13 +376,31 @@ int main(int argc, char* argv[])
             }
             break;
         case KEYACTION_REPLACE: {
-                string replace_what = input_line("Replace what");
-                string replace_with = input_line("Replace with");
-                status << "Replace text \""
-                       << replace_what
-                       << "\" with \""
-                       << replace_with
-                       << "\"";
+                string replace_what=input_line("Replace what");
+                if (replace_what != "") {
+                    last_replace_what = replace_what;
+                }
+                else if (last_replace_what != "") {
+                    replace_what = last_replace_what;
+                }
+
+                if (replace_what != "") {
+                    string replace_with=input_line("Replace with");
+
+                    if (replace_what != "") {
+                        size_t replaced_count=0;
+                        while (file_buffer.replace(replace_what, replace_with)) {
+                            replaced_count++;
+                        }
+                        status << "Replaced "
+                               << replaced_count
+                               << " occurrences of \""
+                               << replace_what
+                               << "\" with \""
+                               << replace_with
+                               << "\"";
+                    }
+                }
             }
             break;
         }
