@@ -49,7 +49,7 @@ public:
     TextBuffer();
     void load_file(string filename);
     void clear();
-    void update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer=NULL, bool find_text=false);
+    void update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer=NULL);
     void activate_buffer(int buffer_x);
     void save(string filename);
     void insert_line(string line);
@@ -80,7 +80,7 @@ public:
     void undo(vector< vector<string> >& clipboard);
     void redo(vector< vector<string> >& clipboard);
     void init_empty();
-    void find_text();
+    bool find_text(string find_What);
 };
 
 #endif

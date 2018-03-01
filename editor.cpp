@@ -39,6 +39,7 @@ enum KeyAction {
     KEYACTION_UNDO,
     KEYACTION_REDO,
     KEYACTION_FIND,
+    KEYACTION_REPLACE,
 };
 
 
@@ -67,6 +68,7 @@ void set_default_controls(map<string, KeyAction> *controls) {
     (*controls)["Mz"] = KEYACTION_UNDO;
     (*controls)["^y"] = KEYACTION_REDO;
     (*controls)["^f"] = KEYACTION_FIND;
+    (*controls)["^r"] = KEYACTION_REPLACE;
 }
 
 
@@ -108,11 +110,40 @@ void load_controls(map<string, KeyAction> *controls, const char* filename) {
             else if (action == "undo") (*controls)[key] = KEYACTION_UNDO;
             else if (action == "redo") (*controls)[key] = KEYACTION_REDO;
             else if (action == "find") (*controls)[key] = KEYACTION_FIND;
+            else if (action == "replace") (*controls)[key] = KEYACTION_REPLACE;
             else {
                 cout << "Unknown action: " << action << endl;
             }
         }
     }
+}
+
+
+string input_line(const char *name) {
+    move(LINES-1, 0);
+    attron(A_REVERSE);
+    for(int i=0; i < COLS;i++) {
+      printw(" ");
+    }
+    move(LINES-1, 0);
+
+    printw("%s: ", name);
+    string input;
+    bool should_stop_input=false;
+    while (!should_stop_input) {
+        int c = getch();
+        switch (c) {
+        case '\n':
+            should_stop_input=true;
+            break;
+        default:
+            input+=c;
+            printw("%c", c);
+        }
+    }
+    attroff(A_REVERSE);
+
+    return input;
 }
 
 
@@ -156,12 +187,12 @@ int main(int argc, char* argv[])
     TextBuffer debug_buffer;
     debug_buffer.init_empty();
 
+    string last_search;
     vector< vector<string> > clipboard;
-    bool find_text=false;
 
     TextBuffer file_buffer;
     file_buffer.load_file(filename);
-    file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer, find_text);
+    file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer);
     debug_buffer.update(debug_buffer_x, debug_buffer_width, clipboard);
 
     bool should_close_program = false;
@@ -323,9 +354,35 @@ int main(int argc, char* argv[])
             file_buffer.redo(clipboard);
             status << "Redo";
             break;
-        case KEYACTION_FIND:
-            file_buffer.find_text();
-            status << "Find text";
+        case KEYACTION_FIND: {
+                string find_what = input_line("Find");
+                if (find_what != "") {
+                    last_search = find_what;
+                }
+                else if (last_search != "") {
+                    find_what = last_search;
+                }
+
+                if (find_what != "") {
+                    bool found = file_buffer.find_text(find_what);
+                    if (found) {
+                        status << "Found \"" << find_what << '"';
+                    }
+                    else {
+                        status << "Can't find \"" << find_what << '"';
+                    }
+                }
+            }
+            break;
+        case KEYACTION_REPLACE: {
+                string replace_what = input_line("Replace what");
+                string replace_with = input_line("Replace with");
+                status << "Replace text \""
+                       << replace_what
+                       << "\" with \""
+                       << replace_with
+                       << "\"";
+            }
             break;
         }
 
@@ -333,7 +390,7 @@ int main(int argc, char* argv[])
         move(LINES-1, 0);
         attron(A_REVERSE);
 
-        printw("Ln:%d, Col:%d Copied:%d  %s ", file_buffer.get_y()+1, file_buffer.get_x()+1, clipboard.size(), status.str().c_str());
+        printw("Ln:%d, Col:%d, Copied:%d  %s ", file_buffer.get_y()+1, file_buffer.get_x()+1, clipboard.size(), status.str().c_str());
         for(int i=0; i < COLS;i++) {
             printw(" ");
         }
@@ -341,7 +398,7 @@ int main(int argc, char* argv[])
         printw("%s ", filename);
         attroff(A_REVERSE);
 
-        file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer, find_text);
+        file_buffer.update(file_buffer_x, file_buffer_width, clipboard, &debug_buffer);
         debug_buffer.update(debug_buffer_x, debug_buffer_width, clipboard);
     }
     endwin();

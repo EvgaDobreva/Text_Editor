@@ -49,7 +49,7 @@ void TextBuffer::clear() {
     lines_.clear();
 }
 
-void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer, bool find_text) {
+void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer) {
     use_default_colors();
     start_color();
 
@@ -136,16 +136,16 @@ void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipbo
         int row=line_index+scroll;
         move(line_index, buffer_x);
 
-        if (selection_x != -1 && row > begin_y && row <= end_y) {
-            int row_length=lines_[row-1].length();
-            move (line_index - 1, row_length);
-            attron(A_REVERSE);
-            for (int i=row_length; i < width; i++) {
-                printw(" ");
-            }
-            move(row, buffer_x);
-            attroff(A_REVERSE);
-        }
+        // if (selection_x != -1 && row > begin_y && row <= end_y) {
+        //     int row_length=lines_[row-1].length();
+        //     move (line_index - 1, row_length);
+        //     attron(A_REVERSE);
+        //     for (int i=row_length; i < width; i++) {
+        //         printw(" ");
+        //     }
+        //     move(row, buffer_x);
+        //     attroff(A_REVERSE);
+        // }
 
         string line = lines_[row];
         int line_width = (int) line.length() > width ? width : line.length();
@@ -894,14 +894,29 @@ void TextBuffer::init_empty() {
     lines_.push_back(empty);
 }
 
-void TextBuffer::find_text() {
+bool TextBuffer::find_text(string find_what) {
+    string line=lines_[y];
+    size_t pos=line.find(find_what, x);
+    if (pos != string::npos) {
+        x=pos+find_what.length();
+        selection_x=pos;
+        selection_y=y;
+        return true;
+    }
 
-
-
-    string needle;
-
-
-
+    for (size_t row=y+1; row < lines_.size(); row++) {
+        string line=lines_[row];
+        size_t pos=line.find(find_what);
+        if (pos != string::npos) {
+            x=pos+find_what.length();
+            y=row;
+            selection_x=pos;
+            selection_y=row;
+            scroll=row;
+            return true;
+        }
+    }
     last_action=ACTION_MOVE;
 
+    return false;
 }
