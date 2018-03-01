@@ -45,8 +45,38 @@ void TextBuffer::load_file(string filename) {
     file.close();
 }
 
+void TextBuffer::save(string filename) {
+    ofstream outfile(filename.c_str());
+    vector<string>::const_iterator iterator=lines_.begin();
+    outfile << (*iterator).c_str();
+    for (++iterator; iterator != lines_.end(); ++iterator) {
+        outfile << "\n";
+        outfile << (*iterator).c_str();
+    }
+    outfile.close();
+}
+
+void TextBuffer::init_empty() {
+    string empty="";
+    lines_.push_back(empty);
+}
+
 void TextBuffer::clear() {
     lines_.clear();
+}
+
+void TextBuffer::insert_lines(vector<string> new_lines) {
+    string text_after_x=lines_[y].substr(x);
+    lines_[y].erase(x);
+    lines_[y] += new_lines[0];
+    y++;
+    for (size_t i=1; i < new_lines.size(); i++) {
+        lines_.insert(lines_.begin()+y, new_lines[i]);
+        y++;
+    }
+    y--;
+    x=lines_[y].length();
+    lines_[y] += text_after_x;
 }
 
 void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipboard, TextBuffer* debug_buffer) {
@@ -332,17 +362,6 @@ void TextBuffer::activate_buffer(int buffer_x) {
     move(y - scroll, x + buffer_x);
 }
 
-void TextBuffer::save(string filename) {
-    ofstream outfile(filename.c_str());
-    vector<string>::const_iterator iterator=lines_.begin();
-    outfile << (*iterator).c_str();
-    for (++iterator; iterator != lines_.end(); ++iterator) {
-        outfile << "\n";
-        outfile << (*iterator).c_str();
-    }
-    outfile.close();
-}
-
 void TextBuffer::insert_line(string line) {
     lines_.push_back(line);
 }
@@ -400,65 +419,6 @@ void TextBuffer::insert_char(char character) {
 
     last_action=ACTION_INSERT_CHAR;
     last_action_modified=true;
-}
-
-int TextBuffer::get_x() {
-    return x;
-}
-
-int TextBuffer::get_y() {
-    return y;
-}
-
-void TextBuffer::key_left() {
-    if (x-1 >= 0) {
-        x--;
-    }
-    else if (x == 0 && y-1 >= 0) {
-        x=(int) lines_[--y].length();
-    }
-
-    last_action=ACTION_MOVE;
-}
-
-void TextBuffer::key_right() {
-    if (x+1 <= (int) lines_[y].length()) {
-        x++;
-    }
-    else if (y+1 < (int) lines_.size()) {
-        x=0;
-        y++;
-    }
-
-    last_action=ACTION_MOVE;
-}
-
-void TextBuffer::key_up() {
-    if (y>0) {
-        if (x > (int) lines_[y-1].size()) {
-            x=(int) lines_[y-1].length();
-        }
-        y--;
-    }
-    else {
-        x=0;
-    }
-
-    last_action=ACTION_MOVE;
-}
-
-void TextBuffer::key_down() {
-    if (y+1 < (int) lines_.size()) {
-        if (x > (int) lines_[y+1].size()) {
-            x=(int) lines_[y+1].length();
-        }
-        y++;
-    }
-    else {
-        x=lines_[y].size();
-    }
-
-    last_action=ACTION_MOVE;
 }
 
 void TextBuffer::key_backspace() {
@@ -561,6 +521,65 @@ void TextBuffer::key_enter() {
 
     last_action=ACTION_SPLIT_LINE;
     last_action_modified=true;
+}
+
+int TextBuffer::get_x() {
+    return x;
+}
+
+int TextBuffer::get_y() {
+    return y;
+}
+
+void TextBuffer::key_left() {
+    if (x-1 >= 0) {
+        x--;
+    }
+    else if (x == 0 && y-1 >= 0) {
+        x=(int) lines_[--y].length();
+    }
+
+    last_action=ACTION_MOVE;
+}
+
+void TextBuffer::key_right() {
+    if (x+1 <= (int) lines_[y].length()) {
+        x++;
+    }
+    else if (y+1 < (int) lines_.size()) {
+        x=0;
+        y++;
+    }
+
+    last_action=ACTION_MOVE;
+}
+
+void TextBuffer::key_up() {
+    if (y>0) {
+        if (x > (int) lines_[y-1].size()) {
+            x=(int) lines_[y-1].length();
+        }
+        y--;
+    }
+    else {
+        x=0;
+    }
+
+    last_action=ACTION_MOVE;
+}
+
+void TextBuffer::key_down() {
+    if (y+1 < (int) lines_.size()) {
+        if (x > (int) lines_[y+1].size()) {
+            x=(int) lines_[y+1].length();
+        }
+        y++;
+    }
+    else {
+        x=lines_[y].size();
+    }
+
+    last_action=ACTION_MOVE;
 }
 
 void TextBuffer::word_forward() {
@@ -764,20 +783,6 @@ void TextBuffer:: paste_selection(vector< vector<string> >& clipboard, int index
     last_action_modified=true;
 }
 
-void TextBuffer::insert_lines(vector<string> new_lines) {
-    string text_after_x=lines_[y].substr(x);
-    lines_[y].erase(x);
-    lines_[y] += new_lines[0];
-    y++;
-    for (size_t i=1; i < new_lines.size(); i++) {
-        lines_.insert(lines_.begin()+y, new_lines[i]);
-        y++;
-    }
-    y--;
-    x=lines_[y].length();
-    lines_[y] += text_after_x;
-}
-
 void TextBuffer::undo(vector< vector<string> >& clipboard) {
     if (undo_history.size() <= undo_count) {
         return;
@@ -903,10 +908,6 @@ void TextBuffer::redo(vector< vector<string> >& clipboard) {
     last_action_modified=true;
 }
 
-void TextBuffer::init_empty() {
-    string empty="";
-    lines_.push_back(empty);
-}
 
 bool TextBuffer::find_text(string find_what) {
     string line=lines_[y];
