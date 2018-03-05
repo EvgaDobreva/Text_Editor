@@ -54,10 +54,10 @@ void set_default_controls(map<string, KeyAction> *controls) {
     (*controls)["delete"] = KEYACTION_DELETE;
     (*controls)["enter"] = KEYACTION_NEW_LINE;
     (*controls)["^w"] = KEYACTION_WORD_FORWARD;
-    (*controls)["^b"] = KEYACTION_WORD_BACKWARDS;
-    (*controls)["^a"] = KEYACTION_LINE_BEGIN;
+    (*controls)["Mw"] = KEYACTION_WORD_BACKWARDS;
+    (*controls)["^b"] = KEYACTION_LINE_BEGIN;
     (*controls)["^e"] = KEYACTION_LINE_END;
-    (*controls)["Ma"] = KEYACTION_FILE_BEGIN;
+    (*controls)["Mb"] = KEYACTION_FILE_BEGIN;
     (*controls)["Me"] = KEYACTION_FILE_END;
     (*controls)["sleft"] = KEYACTION_SELECT_LEFT;
     (*controls)["sright"] = KEYACTION_SELECT_RIGHT;
