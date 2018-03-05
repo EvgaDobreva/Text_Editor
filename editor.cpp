@@ -12,7 +12,6 @@
 
 using namespace std;
 
-
 enum KeyAction {
     KEYACTION_NONE,
     KEYACTION_LEFT,
@@ -63,14 +62,13 @@ void set_default_controls(map<string, KeyAction> *controls) {
     (*controls)["sleft"] = KEYACTION_SELECT_LEFT;
     (*controls)["sright"] = KEYACTION_SELECT_RIGHT;
     (*controls)["Mx"] = KEYACTION_CUT;
-    (*controls)["Mw"] = KEYACTION_COPY;
+    (*controls)["Mc"] = KEYACTION_COPY;
     (*controls)["^v"] = KEYACTION_PASTE;
     (*controls)["Mz"] = KEYACTION_UNDO;
     (*controls)["^y"] = KEYACTION_REDO;
     (*controls)["^f"] = KEYACTION_FIND;
     (*controls)["^r"] = KEYACTION_REPLACE;
 }
-
 
 void load_controls(map<string, KeyAction> *controls, const char* filename) {
     ifstream file(filename);
@@ -118,7 +116,6 @@ void load_controls(map<string, KeyAction> *controls, const char* filename) {
     }
 }
 
-
 string input_line(const char *name) {
     move(LINES-1, 0);
     attron(A_REVERSE);
@@ -145,7 +142,6 @@ string input_line(const char *name) {
 
     return input;
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -232,9 +228,6 @@ int main(int argc, char* argv[])
             break;
         case KEY_SRIGHT:
             key = "sright";
-            break;
-        case 127:
-            key = "backspace";
             break;
         case KEY_BACKSPACE:
             key = "^backspace";

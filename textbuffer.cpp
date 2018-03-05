@@ -14,7 +14,7 @@ using namespace std;
 
 const char* DATA_TYPES[]={"auto", "bool", "char", "char16_t", "char32_t", "const", "double", "explicit", "export", "extern", "float", "inline", "int", "long", "mutable", "register", "short", "signed", "static", "unsigned", "void", "volatile", "wchar_t"};
 size_t DATA_TYPES_LEN=23;
-const char* KEYWORDS[]={"alignas", "alignof", "and", "and_eq", "asm", "bitand", "bitor", "break", "case", "catch", "class", "compl", "constexpr", "const_cast", "continue", "decltype", "default", "delete", "do", "dynamic_cast", "else", "enum", "false", "for", "friend", "goto", "if", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private", "protected", "public", "reinterpret_cast", "return", "sizeof", "static_assert", "static_cast", "struct", "switch", "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union", "using", "virtual", "while", "xor", "xor_eq", "override", "final"};
+const char* KEYWORDS[]={"alignas", "alignof", "and", "and_eq", "asm", "bitand", "bitor", "break", "case", "catch", "class", "compl", "constexpr", "const_cast", "continue", "decltype", "default", "delete", "do", "dynamic_cast", "else", "enum", "false", "for", "friend", "goto", "if", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private", "protected", "public", "reinterpret_cast", "return", "sizeof", "static_assert", "static_cast", "struct", "switch", "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union", "using", "virtual", "while", "xor", "xor_eq", "override", "final", "include"};
 size_t KEYWORDS_LEN=63;
 
 class FileException {
@@ -165,17 +165,6 @@ void TextBuffer::update(int buffer_x, int width, vector< vector<string> > clipbo
     for (int line_index=0; line_index < lines_count; line_index++) {
         int row=line_index+scroll;
         move(line_index, buffer_x);
-
-        // if (selection_x != -1 && row > begin_y && row <= end_y) {
-        //     int row_length=lines_[row-1].length();
-        //     move (line_index - 1, row_length);
-        //     attron(A_REVERSE);
-        //     for (int i=row_length; i < width; i++) {
-        //         printw(" ");
-        //     }
-        //     move(row, buffer_x);
-        //     attroff(A_REVERSE);
-        // }
 
         string line = lines_[row];
         int line_width = (int) line.length() > width ? width : line.length();
@@ -893,8 +882,7 @@ void TextBuffer::redo(vector< vector<string> >& clipboard) {
             y=undo_info.y;
             break;
         case ACTION_REPLACE:
-            lines_[undo_info.y].replace(undo_info.x,
-                                        undo_info.data.length()-undo_info.index,
+            lines_[undo_info.y].replace(undo_info.x, undo_info.data.length()-undo_info.index,
                                         undo_info.data.substr(0, undo_info.index));
             x=undo_info.x;
             y=undo_info.y;
