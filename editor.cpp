@@ -63,7 +63,7 @@ void set_default_controls(map<string, KeyAction> *controls) {
     (*controls)["sright"] = KEYACTION_SELECT_RIGHT;
     (*controls)["Mx"] = KEYACTION_CUT;
     (*controls)["Mc"] = KEYACTION_COPY;
-    (*controls)["^v"] = KEYACTION_PASTE;
+    (*controls)["Mv"] = KEYACTION_PASTE;
     (*controls)["Mz"] = KEYACTION_UNDO;
     (*controls)["^y"] = KEYACTION_REDO;
     (*controls)["^f"] = KEYACTION_FIND;
