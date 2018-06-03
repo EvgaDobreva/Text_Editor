@@ -21,5 +21,5 @@ cut Mx
 paste Mv
 undo Mz
 redo Md
-find ^b
-replace ^h
+find ^f
+replace ^r
