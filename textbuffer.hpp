@@ -10,6 +10,15 @@
 
 using namespace std;
 
+enum WordColor {
+	NO_COLOR,
+	GREEN,
+	RED,
+	BLUE,
+	YELLOW,
+	MAGENTA,
+};
+
 enum ActionType {
     ACTION_NONE,
     ACTION_DELETE_LINE,
@@ -46,10 +55,11 @@ class TextBuffer {
     ActionType last_action;
     size_t undo_count;
     bool last_action_modified;
+    string filename;
 public:
     TextBuffer();
     void load_file(string filename);
-    void save(string filename);
+    void save();
     void init_empty();
     void clear();
     void insert_lines(vector<string> new_lines);
@@ -73,7 +83,6 @@ public:
     void line_end();
     void file_begin();
     void file_end();
-    void set_selection();
     void move_selection();
     void remove_selection();
     void copy_selection(vector< vector<string> >& clipboard);
